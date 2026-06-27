@@ -1,0 +1,63 @@
+/*
+ * Copyright (c) 2022 Xi'an Jiaotong University
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation;
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *
+ * Authors: Shunlei Yang <yxlzqmysl0405@stu.xjtu.edu.cn>
+ */
+
+#include "switch-mmu-helper.h"
+
+#include "ns3/log.h"
+#include "ns3/object-factory.h"
+
+namespace ns3
+{
+
+NS_LOG_COMPONENT_DEFINE("SwitchMmuHelper");
+
+SwitchMmuHelper::SwitchMmuHelper()
+{
+    NS_LOG_FUNCTION(this);
+}
+
+SwitchMmuHelper::~SwitchMmuHelper()
+{
+    NS_LOG_FUNCTION(this);
+}
+
+Ptr<SwitchMmu>
+SwitchMmuHelper::Install(Ptr<Node> node) const
+{
+    if (node->GetObject<SwitchMmu>())
+    {
+        NS_FATAL_ERROR("SwitchMmuHelper:Install (): Aggregating "
+                       "an switch mmu to a node with an existing SwitchMmu object");
+    }
+    ObjectFactory factory;
+    factory.SetTypeId("ns3::SwitchMmu");
+    Ptr<Object> mmu = factory.Create<Object>();
+    node->AggregateObject(mmu);
+    return mmu->GetObject<SwitchMmu>();
+}
+
+void
+SwitchMmuHelper::Install(NodeContainer c) const
+{
+    for (NodeContainer::Iterator i = c.Begin(); i != c.End(); ++i)
+    {
+        Install(*i);
+    }
+}
+} // namespace ns3

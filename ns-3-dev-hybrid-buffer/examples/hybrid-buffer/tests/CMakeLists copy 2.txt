@@ -1,0 +1,44 @@
+# 步骤 1: 手动列出所有需要编译的测试用例。
+# 这是最稳定、最可靠的方式，彻底避免了所有 GLOB 相关的问题。
+set(my_test_cases
+    "hybrid-buffer-test-tc1-01.cc"
+    "hybrid-buffer-test-tc2-01.cc"
+    "hybrid-buffer-test-tc2-02.cc"
+    "hybrid-buffer-test-tc2-03.cc"
+    "hybrid-buffer-test-tc2-04.cc"
+    "hybrid-buffer-test-tc2-05.cc"
+    "hybrid-buffer-test-tc2-06.cc"
+    "hybrid-buffer-test-tc2-07.cc"
+    "hybrid-buffer-test-tc2-08.cc"
+    "hybrid-buffer-test-tc2-09.cc"
+    # 注意：将来如果你添加了新的 .cc 文件，需要手动把它加到这个列表里！
+)
+
+# 步骤 2: 为列表中的每一个文件，清晰地创建一个可执行程序。
+foreach(test_source_file ${my_test_cases})
+    get_filename_component(test_name ${test_source_file} NAME_WE)
+
+    build_example(
+        NAME ${test_name}
+        SOURCE_FILES
+            ${test_source_file}
+            ../helper/sim-helper.cc
+            ../helper/star-sim-helper.cc
+            ../helper/fullmesh-star-sim-helper.cc
+            ../applications/fullmesh-application.cc
+            ../applications/fullmesh-helper.cc
+        HEADER_FILES
+            ../helper/sim-helper.h
+            ../helper/star-sim-helper.h
+            ../helper/fullmesh-star-sim-helper.h
+            ../applications/fullmesh-application.h
+            ../applications/fullmesh-helper.h
+        LIBRARIES_TO_LINK
+            ${libcore}
+            ${libinternet}
+            ${libpoint-to-point}
+            ${libflow-monitor}
+            ${libapplications}
+            ${libtraffic-control}
+    )
+endforeach()
