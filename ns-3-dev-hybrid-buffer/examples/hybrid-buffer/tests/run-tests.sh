@@ -15,11 +15,17 @@ fi
 
 echo $algorithm
 
-NS3="$(pwd)/../../.."
-CUR_DIR="$(pwd)"
-OUTPUT_DIR="/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data"
-PLOT_DIR="$CUR_DIR/analysis"
-TRAFFIC_GEN_DIR="/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/TrafficGen"
+# run-tests.sh 文件自身所在的目录，即 tests 目录
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+CUR_DIR="$SCRIPT_DIR"
+
+# 从 tests 目录向上三级，得到 ns-3-dev-hybrid-buffer 根目录
+NS3="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+
+OUTPUT_DIR="$SCRIPT_DIR/data"
+PLOT_DIR="$SCRIPT_DIR/analysis"
+TRAFFIC_GEN_DIR="$SCRIPT_DIR/TrafficGen"
 
 if [ ! -d "$OUTPUT_DIR" ]; then
     mkdir $OUTPUT_DIR
@@ -62,42 +68,74 @@ cleanFile()
 
 runTest8()
 {
-  # OUTPUT_DIR="/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data"
-  OUTPUT_DIR_real="${OUTPUT_DIR}/${algorithm}/" #"/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data/pbs/"
-  new_output_real="${OUTPUT_DIR_real}/${testcase:19:6}/"
+  # 从 hybrid-buffer-test-tc2-08 中提取 tc2-08
+  local case_id="${testcase#hybrid-buffer-test-}"
+
+  local output_dir_real="${OUTPUT_DIR}/${algorithm}"
+  local final_dir
+  local output_file_real
+
   echo "Starting testcase $testcase at $(date)"
 
-  if [ "$algorithm" = "pbs" ]; then
-    # 流量速率
-    for item in 900 800 700 600 500 400 300 200 100
+  if [[ "$algorithm" == "pbs" ]]; then
+
+    for flow_rate in 900 800 700 600 500 400 300 200 100
     do
-      echo "Starting testcase $testcase withflowrate-$item at $(date)"
-      final_dir="${OUTPUT_DIR_real}/${testcase:19:6}/${item}/"
-      output_file_real="${final_dir}/$testcase.txt"
-      rm -rf $final_dir/*.csv
-      (./ns3 run --cwd=$final_dir "$testcase --Deephir_threshold=1 --algorithm_name=pbs --flow_rate=$item" ) > ${output_file_real}
+      echo "Starting testcase $testcase with flow_rate=$flow_rate at $(date)"
+
+      final_dir="${output_dir_real}/${case_id}/${flow_rate}"
+      output_file_real="${final_dir}/${testcase}.txt"
+      mkdir -p "$final_dir"
+      rm -f "$final_dir"/*.csv
+
+      ./ns3 run --cwd="$final_dir" \
+        "$testcase --Deephir_threshold=1 --algorithm_name=pbs --flow_rate=$flow_rate" \
+        > "$output_file_real" 2>&1
+
+      if [[ $? -ne 0 ]]; then
+        echo "ERROR: $testcase pbs flow_rate=$flow_rate 运行失败"
+        echo "日志位置：$output_file_real"
+        return 1
+      fi
+
+      echo "Finished flow_rate=$flow_rate"
     done
-  else
-    # 流量速率
+
+  elif [[ "$algorithm" == "BMS" ]]; then
+
     for flow_rate in 900 800 700 600 500 400 300 200 100
     do
       for Deephir_threshold in 0.2 0.5 1.0 2.0 4.0
       do
-        echo "Starting testcase $testcase with flowrate=$flow_rate Deephir_threshold=$Deephir_threshold at $(date)"
-        final_dir="${OUTPUT_DIR_real}/${testcase:19:6}/${Deephir_threshold}M/${flow_rate}/"
-        output_file_real="${final_dir}/$testcase.txt"
-        rm -rf $final_dir/*.csv
-        (./ns3 run --cwd=$final_dir "$testcase --Deephir_threshold=$Deephir_threshold --algorithm_name=BMS --flow_rate=$flow_rate" ) > ${output_file_real}
+        echo "Starting testcase $testcase with flow_rate=$flow_rate Deephir_threshold=$Deephir_threshold at $(date)"
+
+        final_dir="${output_dir_real}/${case_id}/${Deephir_threshold}M/${flow_rate}"
+        output_file_real="${final_dir}/${testcase}.txt"
+
+        mkdir -p "$final_dir"
+
+        rm -f "$final_dir"/*.csv
+
+        ./ns3 run --cwd="$final_dir" \
+          "$testcase --Deephir_threshold=$Deephir_threshold --algorithm_name=BMS --flow_rate=$flow_rate" \
+          > "$output_file_real" 2>&1
+
+        if [[ $? -ne 0 ]]; then
+          echo "ERROR: $testcase BMS flow_rate=$flow_rate threshold=$Deephir_threshold 运行失败"
+          echo "日志位置：$output_file_real"
+          return 1
+        fi
+
+        echo "Finished flow_rate=$flow_rate threshold=$Deephir_threshold"
       done
     done
+
+  else
+    echo "ERROR: runTest8 只支持 pbs 或 BMS，当前参数为：$algorithm"
+    return 1
   fi
+
   echo "Finished testcase $testcase at $(date)"
-  
-  cd "/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/analysis"
-  testcase="tc2-08"
-  echo "---正在画" $testcase
-  python ploting_sigle.py tc2-08 pbs
-  echo "---"$testcase "画完了" 
 }
 
 
@@ -107,7 +145,6 @@ runTest9()
   #testcase="hybrid-buffer-test-tc2-09"
   echo "${algorithm}"
 
-  # OUTPUT_DIR="/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data"
   echo "Starting testcase $testcase at $(date)"
 
   if [[ "$algorithm" = "pbs" || "$algorithm" = "both" ]]; then
@@ -143,7 +180,7 @@ runTest9()
   
   echo "Finished testcase $testcase  at $(date)"
   
-  cd "/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/analysis"
+  cd "$PLOT_DIR" || exit 1
   echo "---正在画" $testcase
   python TruePlot.py
   echo "---"$testcase "画完了" 
@@ -151,22 +188,49 @@ runTest9()
 
 run()
 {
-  # OUTPUT_DIR="/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data"
-  OUTPUT_DIR_real="${OUTPUT_DIR}/${algorithm}/"
-
-  new_output_real="${OUTPUT_DIR_real}/${testcase:19:6}/"
-
-  output_file_real="${new_output_real}/$testcase.txt"
+  OUTPUT_DIR_real="${OUTPUT_DIR}/${algorithm}"
+  new_output_real="${OUTPUT_DIR_real}/${testcase:19:6}"
+  output_file_real="${new_output_real}/${testcase}.txt"
 
   echo "Starting testcase $testcase at $(date)"
+  echo "TrafficGen目录：$TRAFFIC_GEN_DIR"
 
-  rm -rf $new_output_real/*.csv
+  mkdir -p "$new_output_real"
 
-  (./ns3 run --cwd=$new_output_real "$testcase --algorithm_name=$algorithm") > ${output_file_real}
+  rm -f "$new_output_real"/*.csv
 
-  
+if [[ "$testcase" == "hybrid-buffer-test-tc2-01" ||
+      "$testcase" == "hybrid-buffer-test-tc2-02" ||
+      "$testcase" == "hybrid-buffer-test-tc2-03" ||
+      "$testcase" == "hybrid-buffer-test-tc2-04" ||
+      "$testcase" == "hybrid-buffer-test-tc2-09" ||
+      "$testcase" == "hybrid-buffer-test-tc2-10" ||
+      "$testcase" == "hybrid-buffer-test-tc2-11" ||
+      "$testcase" == "hybrid-buffer-test-tc2-12" ]]; then
+
+  ./ns3 run --cwd="$new_output_real" \
+    "$testcase --algorithm_name=$algorithm --traffic_gen_dir=$TRAFFIC_GEN_DIR" \
+    > "$output_file_real" 2>&1
+
+else
+
+  ./ns3 run --cwd="$new_output_real" \
+    "$testcase --algorithm_name=$algorithm" \
+    > "$output_file_real" 2>&1
+
+fi
+
+  status=$?
+
+  if [[ $status -ne 0 ]]; then
+    echo "ERROR: $testcase 运行失败，退出码：$status"
+    echo "日志位置：$output_file_real"
+    return $status
+  fi
+
   echo "Finished testcase $testcase at $(date)"
 }
+
 
 plotAll()
 {
@@ -264,7 +328,7 @@ run_and_draw_basic(){
   echo "###############################################################################################"
   echo "*正在画图……"
 
-    cd "/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/analysis"
+    cd "$PLOT_DIR" || exit 1
       testcase="tc2-05"
         echo "---正在画" $testcase
           python ploting_sigle.py $testcase BMS
@@ -349,7 +413,7 @@ run_and_draw_all(){
   echo "###############################################################################################"
   echo "*正在画图……"
 
-    cd "/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/analysis"
+    cd "$PLOT_DIR" || exit 1
       testcase="tc2-05"
         echo "---正在画" $testcase
           python ploting_sigle.py $testcase BMS
@@ -382,7 +446,7 @@ run_and_draw_all(){
 draw_all(){
   echo "###############################################################################################"
   echo "*正在画图……"
-    cd "/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/analysis"
+    cd "$PLOT_DIR" || exit 1
       testcase="tc2-05"
         echo "---正在画" $testcase
           python ploting_sigle.py $testcase BMS

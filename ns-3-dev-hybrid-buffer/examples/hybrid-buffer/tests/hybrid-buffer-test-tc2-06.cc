@@ -156,7 +156,7 @@ main(int argc, char* argv[])
                              recvLinkDelay,
                              sendLinkCapacity,
                              sendLinkDelay);
-
+    simHelper.ConfigTransport("udp");
     uint32_t sendRate1 = 300;
     uint32_t sendRate2 = 900;
     std::string rate1 = std::to_string(sendRate1) + "Gbps";

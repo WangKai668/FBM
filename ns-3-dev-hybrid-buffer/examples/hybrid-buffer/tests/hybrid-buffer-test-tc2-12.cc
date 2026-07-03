@@ -175,6 +175,7 @@ main(int argc, char* argv[])
     uint64_t flow_rate = 100;
     uint64_t if_change_threshold = 0;
     std::string algorithm_name = "BMS";
+    std::string trafficGenDir;
     int isWeb = 0;
     int isIncast = 1;
     cmd.AddValue("Deephir_threshold", "deephir阈值", Deephir_threshold);
@@ -182,6 +183,9 @@ main(int argc, char* argv[])
     cmd.AddValue("algorithm_name", "算法名", algorithm_name);
     cmd.AddValue("IsWeb", "真实流量跑Websearch还是hadoop?", isWeb);
     cmd.AddValue("IsIncast", "真实流量是否加Incast?", isIncast);
+    cmd.AddValue("traffic_gen_dir",
+             "TrafficGen目录，由run-tests.sh传入",
+             trafficGenDir);
     // cmd.AddValue("flow_rate", "流量速率", flow_rate);
 
     std::cout << "是否读取到了" << Deephir_threshold << std::endl;
@@ -227,13 +231,17 @@ main(int argc, char* argv[])
 
     /*后来的*/ {
         std::string file;
-        std::string filename;
-        if (isWeb){
-            filename = "/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/TrafficGen/Generated/traffic_web.txt";
-        }else{
-            filename = "/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/TrafficGen/Generated/traffic_fbhdp.txt";
+
+        if (trafficGenDir.empty())
+        {
+            std::cerr << "错误：没有收到 traffic_gen_dir 参数"
+                    << std::endl;
+            return 1;
         }
-        
+
+        std::string filename = trafficGenDir +(isWeb ? "/Generated/traffic_web.txt": "/Generated/traffic_fbhdp.txt");
+        std::cout << "TrafficGen目录：" << trafficGenDir << std::endl;
+        std::cout << "读取流量文件：" << filename << std::endl;
         {
             using namespace std;
 

@@ -972,7 +972,7 @@ class SwitchMmu : public Object
     double ReadDram_Rate_Total = 0;
     // double Dram_Bandwidth_Remain;
     double Dram_Bandwidth_Timer = 1000;
-    int print_flag = 0;
+    int print_flag = 1;
     uint64_t min_T = 100;
 
     std::vector<std::vector<std::vector<double>>> ReadSram_Size_Cycle;  // Csr*etc
