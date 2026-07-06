@@ -1096,6 +1096,10 @@ class SwitchMmu : public Object
     TracedCallback<Ptr<const Packet>> m_traceSramReadComplete;
     /// Traced Callback: SRAM Write Complete.
     TracedCallback<Ptr<const Packet>> m_traceSramWriteComplete;
+    /// 根据当前算法、测试用例和输出目录，生成 loss_packet.csv 的完整路
+    std::string GetLossPacketFilePath() const;
+    /// 创建 loss_packet.csv 的父目录，并初始化 CSV 文件。
+    void InitializeLossPacketFile();
 };
 } // namespace ns3
 
