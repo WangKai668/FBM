@@ -11,8 +11,17 @@ from matplotlib.pyplot import MultipleLocator
 from mpl_toolkits.axes_grid1 import host_subplot
 from mpl_toolkits import axisartist
 
-data_dir =f'/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data/'
-save_path = f'/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data-fig/'
+# 当前脚本所在目录：tests/analysis
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# tests目录
+TESTS_DIR = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
+
+# tests/data目录
+data_dir = os.path.join(TESTS_DIR, "data") + os.sep
+
+# tests/data-fig目录
+save_path = os.path.join(TESTS_DIR, "data-fig") + os.sep
 
 final_font_size=26
 plt.rc('font',family='Times New Roman')
@@ -163,7 +172,13 @@ def test9_plot():
     # plt.autoscale()
 
     # plt.yscale('log')
-    plt.savefig('/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/analysis/true_flow.pdf', bbox_inches='tight')  #图表输出
+    output_file = os.path.join(SCRIPT_DIR, "true_flow.pdf")
 
+    plt.savefig(
+        output_file,
+        bbox_inches='tight'
+    )
 
+    print("图片已保存到：", output_file)
+    
 test9_plot()

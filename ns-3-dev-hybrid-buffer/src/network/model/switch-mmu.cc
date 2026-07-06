@@ -146,17 +146,16 @@ SwitchMmu::GetTypeId() // 段代码是C++中类SwitchMmu的成员函数GetTypeId
                                           SwitchMmu::YRF,
                                           "YRF"))
             .AddAttribute("baseFilePath",
-                          "/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/"
-                          "tests/data/ ",
-                          StringValue("/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/"
-                                      "hybrid-buffer/tests/data/"),
-                          MakeStringAccessor(&SwitchMmu::baseFilePath),
-                          MakeStringChecker())
-            .AddAttribute("nextFilePath",
-                          "test-tc2-01",
-                          StringValue("tc2-01/"),
-                          MakeStringAccessor(&SwitchMmu::nextFilePath),
-                          MakeStringChecker())
+                        "Base directory for output files",
+                        StringValue("./"),
+                        MakeStringAccessor(&SwitchMmu::baseFilePath),
+                        MakeStringChecker())
+            .AddAttribute(
+                        "nextFilePath",
+                        "Additional output subdirectory",
+                        StringValue(""),
+                        MakeStringAccessor(&SwitchMmu::nextFilePath),
+                        MakeStringChecker())
             .AddAttribute("if_change_threshold",
                           "改变DT阈值标志",
                           UintegerValue(0),
@@ -966,14 +965,16 @@ SwitchMmu::CheckDeepHirBmAlgorithm(
     double DT_ths = (1.0 / m_activeQueNum[port]) * m_onChipBufferRemain;
     double DT_thd = (1.0 / m_activeQueNum[port]) * dramRemain;
 
-    uint64_t DT_Threshold = DT_alpha * m_onChipBufferRemain; // DT;  alpha=2； 单位 B
+    uint64_t DT_Threshold = DT_alpha * m_onChipBufferRemain; // DT;  alpha=2； 单位 B    动态阈值 = α × 当前剩余的片上缓存
+
+    const uint64_t Pqs =UsedSram_Size_Cycle[port][priority][qIndex];  // --sj 从三维数组或三维容器中，读取某个具体队列当前占用的 SRAM 大小。
 
     bmResult = BmResult(DROP); // 否则，直接丢弃数据包
 
-if (print_flag == 1){
-    // 打印当前端口队列、SRAM队列、DRAM队列
-    cout << "当前端口队列长度: " << qlen << " 剩余SRAM缓存: " << m_onChipBufferRemain << "剩余DRAM缓存: " << dramRemain << endl;
-}
+    if (print_flag == 1){
+        // 打印当前端口队列、SRAM队列、DRAM队列
+        cout << "当前端口队列长度: " << qlen << " 剩余SRAM缓存: " << m_onChipBufferRemain << "剩余DRAM缓存: " << dramRemain << endl;
+    }
     NS_ASSERT_MSG(priority <= 1, "优先级只有2个");
     if ((qlen + pktSize) <= m_wredTh[priority] && m_onChipBufferRemain >= pktSize)
     //&& m_onChipBufferSize - m_onChipBufferRemain + pktSize < DT_Threshold)
@@ -985,11 +986,29 @@ if (print_flag == 1){
         //  }else{
         //     bmResult = BmResult(DROP);//否则，直接丢弃数据包
         // }
-        if (print_flag == 1){
-        cout << "Time:" << Simulator::Now() << "  packet:" << packet->GetUid() <<" pktSize: "<<packet->GetSize()<< " 端口:" << port
-             << " 存入片内" << endl;
+    //     if (print_flag == 1){
+    //     cout << "Time:" << Simulator::Now() << "  packet:" << packet->GetUid() <<" pktSize: "<<packet->GetSize()<< " 端口:" << port
+    //          << " 存入片内" << endl;
+    //     }
+    //     bmResult = BmResult(TO_ONCHIPBUFFER);
+    // }
+    //--sj  添加DT丢包部分
+        if (Pqs + pktSize > DT_Threshold)
+        {
+            if (print_flag == 1)
+            {
+                cout << "Pqs + pktSize:" << Pqs + pktSize << "| DT_Threshold:" << DT_Threshold << "  DT阈值丢包" << endl;
+            }
+            bmResult = BmResult(DROP);
         }
-        bmResult = BmResult(TO_ONCHIPBUFFER);
+        else
+        {
+            if (print_flag == 1){
+            cout << "Time:" << Simulator::Now() << "  packet:" << packet->GetUid() <<" pktSize: "<<packet->GetSize()<< " 端口:" << port
+                 << " 存入片内" << endl;
+            }
+            bmResult = BmResult(TO_ONCHIPBUFFER);
+        }
     }
     else
     {

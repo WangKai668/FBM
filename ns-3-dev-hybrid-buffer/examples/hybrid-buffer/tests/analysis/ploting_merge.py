@@ -16,12 +16,19 @@ plt.rcParams['legend.fontsize'] = 15
 
 plt.rc('font',family='Times New Roman')
 #服务器pba
-data_dir =f'/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data/pbs/' #数据所在目录
-save_path = f'/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data-fig/' #存储路径
+# 当前 Python 文件所在目录，即 tests/analysis
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-#服务器BMS
-data_dir_BMS =f'/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data/BMS/' #数据所在目录
-save_path_BMS = f'/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data-fig/' #存储路径
+# tests 目录
+TESTS_DIR = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
+
+# 输入数据目录，末尾保留路径分隔符
+data_dir = os.path.join(TESTS_DIR, "data", "pbs") + os.sep
+data_dir_BMS = os.path.join(TESTS_DIR, "data", "BMS") + os.sep
+
+# 图片保存目录，末尾保留路径分隔符
+save_path = os.path.join(TESTS_DIR, "data-fig") + os.sep
+save_path_BMS = save_path
 
 xzx_line_width = 3
 # xzx_legend_size = 26
@@ -1299,6 +1306,14 @@ if len(sys.argv) == 1:
     print("请传入测试用例编号，example:tc2-04")
 else:
     testcase_number = sys.argv[1] #测试用例编号
+    # 当前测试用例的图片输出目录
+    case_save_dir = os.path.join(
+        save_path,
+        "compare",
+        testcase_number
+    )
+
+    os.makedirs(case_save_dir, exist_ok=True)
     
     buffer_loss_compare(testcase_number)
     buffer_usage_plot(testcase_number)

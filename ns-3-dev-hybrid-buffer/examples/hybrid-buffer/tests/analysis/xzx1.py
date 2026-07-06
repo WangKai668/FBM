@@ -7,26 +7,36 @@ import re
 import sys
 import random
 import bisect
+import traceback
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import MultipleLocator 
 from mpl_toolkits.axes_grid1 import host_subplot
 from mpl_toolkits import axisartist
+
 
 # plt.rcParams['font.sans-serif'] = ['SimSun'] # 用来正常显示中文标签SimHei
 plt.rcParams['axes.unicode_minus'] = False # 用来正常显示负号
 plt.rc('font',family='Times New Roman')
 # plt.rcParams['legend.fontsize'] = 15
 
-# #BMS
-# data_dir =f'/home/dell6/yrf/BMS/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data/'
-# save_path = f'/home/dell6/yrf/BMS/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data-fig/'
+# 当前脚本所在目录：tests/analysis
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-#pba
-data_dir =f'/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data/BMS/'
-save_path = f'/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data-fig/'
+# tests目录
+TESTS_DIR = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
 
-data_dir_BMS = f'/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data/BMS/'
-data_dir_pbs = f'/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data/pbs/'
+# tests/data目录
+DATA_ROOT = os.path.join(TESTS_DIR, "data")
+
+# BMS和pbs数据目录
+data_dir_BMS = os.path.join(DATA_ROOT, "BMS") + os.sep
+data_dir_pbs = os.path.join(DATA_ROOT, "pbs") + os.sep
+
+# 原代码中的data_dir默认指向BMS目录
+data_dir = data_dir_BMS
+
+# 图片输出目录
+save_path = os.path.join(TESTS_DIR, "data-fig") + os.sep
 
 
 
@@ -201,6 +211,12 @@ def queue_usage_plot(id,name,flow_rate):
     plt.clf()
 
 def buffer_loss_compare(id):
+    output_dir = os.path.join(
+        save_path,
+        "compare",
+        id
+    )
+    os.makedirs(output_dir, exist_ok=True)
     # pbs filename
     filename = data_dir_pbs + id + '/' + "buffer-usage-test-"+id+".csv"
     # BMS filename
@@ -330,7 +346,10 @@ def buffer_loss_compare(id):
     legend =plt.gca().get_legend()
     legend.get_frame().set_linewidth(0)
 
-    path = save_path + 'compare/'+id + '/buffer-BMS-vs-pbs' + '.pdf'
+    path = os.path.join(
+        output_dir,
+        "buffer-BMS-vs-pbs.pdf"
+    )
     plt.savefig(path, bbox_inches='tight')
     plt.clf()
 
@@ -363,7 +382,10 @@ def buffer_loss_compare(id):
     legend =plt.gca().get_legend()
     legend.get_frame().set_linewidth(0)
 
-    path = save_path + 'compare/'+id + '/loss-BMS-vs-pbs' + '.pdf'
+    path = os.path.join(
+        output_dir,
+        "loss-BMS-vs-pbs.pdf"
+    )
     plt.savefig(path, bbox_inches='tight')
     plt.clf()
 
@@ -377,8 +399,13 @@ def get_last_field(file_name):
 
 def test8_plot():
     final_font_size = 26
-    data_dir =f'/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data/'
-    save_path = f'/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data-fig/'
+
+    # tests/data目录，末尾保留路径分隔符
+    data_dir = DATA_ROOT + os.sep
+
+    # 使用全局图片输出目录
+    output_root = save_path
+
     # Deephir
     # 定义文件路径
     flow_rates = [100,200,300,400,500,600,700,800,900]
@@ -423,7 +450,18 @@ def test8_plot():
     plt.legend(bbox_to_anchor=(-0.02, 1.001), loc=3, columnspacing=0.8,borderaxespad=0,handles=lines,labels=["Deephir-0.2M","Deephir-0.5M","Deephir-1M","Deephir-2M","Deephir-4M","FBM"],ncol=3,fontsize=final_font_size)
     legend =plt.gca().get_legend()
     legend.get_frame().set_linewidth(0)
-    path = save_path+'compare/tc2-08/adaptability-to-Traffic-Variation-compare.pdf'
+    output_dir = os.path.join(
+        output_root,
+        "compare",
+        "tc2-08"
+    )
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    path = os.path.join(
+        output_dir,
+        "adaptability-to-Traffic-Variation-compare.pdf"
+    )
     plt.savefig(path, bbox_inches='tight')
     plt.clf()
 
