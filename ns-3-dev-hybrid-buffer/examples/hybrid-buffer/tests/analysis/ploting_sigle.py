@@ -12,21 +12,25 @@ from matplotlib.pyplot import MultipleLocator
 from mpl_toolkits.axes_grid1 import host_subplot
 from mpl_toolkits import axisartist
 from brokenaxes import brokenaxes  
+# 当前脚本所在目录，例如 tests/analysis
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# tests 目录
+TESTS_DIR = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
+
+# tests/data 和 tests/data-fig
+DATA_DIR = os.path.join(TESTS_DIR, "data")
+FIG_DIR = os.path.join(TESTS_DIR, "data-fig")
+
+# 保留末尾分隔符，兼容后面大量字符串拼接代码
+data_dir = DATA_DIR + os.sep
+save_path = FIG_DIR + os.sep
+
 
 # plt.rcParams['font.sans-serif'] = ['SimSun'] # 用来正常显示中文标签SimHei
 plt.rcParams['axes.unicode_minus'] = False # 用来正常显示负号
 plt.rc('font',family='Times New Roman')
 plt.rcParams['legend.fontsize'] = 15
-
-# #BMS
-# data_dir =f'/home/dell6/yrf/BMS/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data/'
-# save_path = f'/home/dell6/yrf/BMS/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data-fig/'
-
-#pba
-data_dir =f'/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data/'
-save_path = f'/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data-fig/'
-
- 
 
 
 
@@ -689,8 +693,14 @@ def cost_etc_details_plot(id,name,iftest8SendRate=""):
     #save_png_name2 = 'Utility-test-'+id # U_star[T] U[T]
     save_png_name_U = 'U_Star&U-test-'+id
 #
-    data_dir =f'/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data/'+name+'/'+id+'/'+iftest8SendRate+'/'
-    save_path = f'/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data-fig/'
+    data_dir = os.path.join(
+        DATA_DIR,
+        name,
+        id,
+        iftest8SendRate
+    ) + os.sep
+
+    save_path = FIG_DIR + os.sep
 
     file_name = data_dir + file_pre + '.txt' #....../hybPrid-buffer-test-tc2-01.txt
 
@@ -967,9 +977,14 @@ def cost_etc_details_plot(id,name,iftest8SendRate=""):
         
 def T_AI_MD_details(id,name,iftest8SendRate=""):
     file_pre = 'hybrid-buffer-test-'+id 
-    data_dir =f'/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data/'+name+'/'+id+'/'+iftest8SendRate+'/'
-    save_path = f'/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data-fig/'
+    data_dir = os.path.join(
+        DATA_DIR,
+        name,
+        id,
+        iftest8SendRate
+    ) + os.sep
 
+    save_path = FIG_DIR + os.sep
     file_name = data_dir + file_pre + '.txt'
 
     with open(file_name) as file:
@@ -1110,8 +1125,7 @@ def get_last_field(file_name):
         last_line = f.readline().decode()  # 读取最后一行
     return last_line.strip().split(',')[-1]  # 获取最后一项
 
-# data_dir =f'/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data/'
-# save_path = f'/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data-fig/'
+
 def test8_plot(id,name):
     final_font_size = 30
     # Deephir
@@ -1164,8 +1178,7 @@ def test8_plot(id,name):
     plt.savefig(path, bbox_inches='tight')
     plt.clf()
 
-# data_dir =f'/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data/'
-# save_path = f'/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data-fig/'
+
 ################################################################################################################################################
 def test9_plot():
     # Deephir
@@ -1310,10 +1323,26 @@ def test9_plot():
 def lambda_cost_etc_details_plot(id,name,iftest8SendRate=""):
     file_pre = 'hybrid-buffer-test-'+id #文件前缀
     save_png_name1 = 'Period-test-lambda-miu-'+id # newT[T+1]  Usram Udram  storing_decision  final_dicision
-    data_dir =f'/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data/'+name+'/'+id+'/'+iftest8SendRate+'/'
-    save_path = f'/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data-fig/'
+    case_data_dir = os.path.join(
+        DATA_DIR,
+        name,
+        id,
+        iftest8SendRate
+    )
 
-    file_name = data_dir + file_pre + '.txt' #....../hybrid-buffer-test-tc2-01.txt
+    case_save_dir = os.path.join(
+        FIG_DIR,
+        name,
+        id,
+        iftest8SendRate
+    )
+
+    os.makedirs(case_save_dir, exist_ok=True)
+
+    file_name = os.path.join(
+    case_data_dir,
+    file_pre + ".txt"
+    )
     with open(file_name) as file:
         time = []
         lambda0 =[]
@@ -1368,7 +1397,12 @@ def lambda_cost_etc_details_plot(id,name,iftest8SendRate=""):
         ax1.legend(bbox_to_anchor=(0, 1.01), loc=3, borderaxespad=0,fontsize='x-small',ncol=5)
         plt.rcParams.update({'font.size': 10})
         plt.tight_layout()
-        plt.savefig(save_path +name+'/'+id+'/'+iftest8SendRate+'/'+ save_png_name1+'-port0'+'.png')#将绘制的图保存为图片文件
+        save = os.path.join(
+            case_save_dir,
+            f"T_AI_MD_details-{id}-port0.pdf"
+        )
+
+        plt.savefig(save)
         plt.clf()#清除图像
 
 def U2_U2star_details_plot(id):

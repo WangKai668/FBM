@@ -3,6 +3,15 @@ import pandas as pd
 import os
 import numpy as np
 
+# 当前Python脚本所在目录：tests/analysis
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# tests目录
+TESTS_DIR = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
+
+# tests/data目录
+DATA_DIR = os.path.join(TESTS_DIR, "data")
+
 def process_flow_data(input_file):
     # 判断输入文件类型（BMS或PBS）
     if 'BMS' in input_file:
@@ -77,7 +86,10 @@ def process_flow_data(input_file):
     small_p99_fct = small_flows['FCT(s)'].quantile(0.99) * 1000
     
     # 准备输出文件名
-    output_file = os.path.join(f"filtered_and_sorted_flows_{data_type}.txt")
+    output_file = os.path.join(
+        SCRIPT_DIR,
+        f"filtered_and_sorted_flows_{data_type}.txt"
+    )
     
     # 构建汇总统计行
     with open(output_file, 'w') as f:
@@ -119,14 +131,26 @@ def process_flow_data(input_file):
     print(f"处理完成，{data_type}结果已保存到 {output_file}")
 
 
-case_name="tc2-04"
-# 使用示例
-input_files = [
-    f"/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data/BMS/{case_name}/2.0M/flow-analysis-{case_name}.txt",
-    f"/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data/pbs/{case_name}/flow-analysis-{case_name}.txt"
-]
+case_name = "tc2-04"
 
+input_files = [
+os.path.join(
+        DATA_DIR,
+        "BMS",
+        case_name,
+        "2.0M",
+        f"flow-analysis-{case_name}.txt"
+    ),
+    os.path.join(
+        DATA_DIR,
+        "pbs",
+        case_name,
+        f"flow-analysis-{case_name}.txt"
+    )
+]
 for input_file in input_files:
+    print(f"准备处理文件：{input_file}")
+
     try:
         process_flow_data(input_file)
     except Exception as e:

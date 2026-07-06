@@ -171,17 +171,21 @@ main(int argc, char* argv[])
     uint64_t flow_rate = 100;
     uint64_t if_change_threshold = 0;
     std::string algorithm_name = "BMS";
+    std::string trafficGenDir;
     int isWeb = 0;
     int isIncast = 0;
     cmd.AddValue("Deephir_threshold", "deephir阈值", Deephir_threshold);
     cmd.AddValue("if_change_threshold", "是否改变DT阈值", if_change_threshold);
     cmd.AddValue("algorithm_name", "算法名", algorithm_name);
     cmd.AddValue("IsWeb", "真实流量跑Websearch还是hadoop?", isWeb);
+    
+    cmd.AddValue("traffic_gen_dir",
+                "TrafficGen目录，由run-tests.sh传入",
+                trafficGenDir);
     // cmd.AddValue("IsIncast", "真实流量是否加Incast?", isIncast);
     // cmd.AddValue("flow_rate", "流量速率", flow_rate);
-
-    std::cout << "是否读取到了" << Deephir_threshold << std::endl;
     cmd.Parse(argc, argv);
+    std::cout << "是否读取到了" << Deephir_threshold << std::endl;
 
     // CommandLine cmd(__FILE__);
     // cmd.Parse(argc, argv);
@@ -205,26 +209,34 @@ main(int argc, char* argv[])
 
 
     std::string file;
-    std::string filename;
-    if (isWeb){
-        filename = "/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/TrafficGen/Generated/traffic_web2.txt";
-    }else{
-        filename = "/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/TrafficGen/Generated/traffic_fbhdp2.txt";
+    if (trafficGenDir.empty())
+    {
+        std::cerr << "错误：没有收到 traffic_gen_dir 参数" << std::endl;
+        return 1;
     }
-
-
-    using namespace std;
-
-    // 从文件读入到string里
-    ifstream ifile(filename);
-    // 将文件读入到ostringstream对象buf中
-    ostringstream buf;
+    // 02.cc 默认 isWeb = 0，默认读取 traffic_fbhdp2.txt
+    std::string filename = trafficGenDir + (isWeb? "/Generated/traffic_web2.txt" : "/Generated/traffic_fbhdp2.txt");
+    std::cout << "TrafficGen目录：" << trafficGenDir << std::endl;
+    std::cout << "读取流量文件：" << filename << std::endl;
+    std::ifstream ifile(filename);
+    if (!ifile.is_open())
+    {
+        std::cerr << "错误：无法打开流量文件：" << filename << std::endl;
+        return 1;
+    }
+    // 将文件读入字符串
+    std::ostringstream buf;
     char ch;
-    while (buf && ifile.get(ch))
+    while (ifile.get(ch))
+    {
         buf.put(ch);
-    // 返回与流对象buf关联的字符串
+    }
     file = buf.str();
-
+    if (file.empty())
+    {
+        std::cerr << "错误：流量文件为空：" << filename << std::endl;
+        return 1;
+    }
     std::vector<std::string> lines;
     split(file, lines, "\n");
     lines.erase(lines.begin());

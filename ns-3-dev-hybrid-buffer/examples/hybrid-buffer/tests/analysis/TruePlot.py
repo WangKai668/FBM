@@ -11,8 +11,17 @@ from matplotlib.pyplot import MultipleLocator
 from mpl_toolkits.axes_grid1 import host_subplot
 from mpl_toolkits import axisartist
 
-data_dir =f'/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data/'
-save_path = f'/home/dell6/yrf/pba-xzx/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data-fig/'
+# 当前脚本所在目录：tests/analysis
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# tests目录
+TESTS_DIR = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
+
+# 数据目录：tests/data
+data_dir = os.path.join(TESTS_DIR, "data")
+
+# 图片目录：tests/data-fig
+save_path = os.path.join(TESTS_DIR, "data-fig")
 
 def get_last_field(file_name):
     with open(file_name, 'rb') as f:
@@ -38,20 +47,34 @@ def test9_plot(testcase='tc2-04'):
 
     # Deephir
     thresholds = [0.2,0.5,1.0,2.0,4.0]
-    file_path_pre = data_dir + 'BMS/'+testcase+'/'
+    file_path_pre = os.path.join(
+        data_dir,
+        "BMS",
+        testcase
+    )
 
     for threshold in thresholds:
-        file_path = file_path_pre + str(threshold) +'M/loss_packet.csv'
+        file_path = os.path.join(
+            file_path_pre,
+            f"{threshold}M",
+            "loss_packet.csv"
+        )
         
-        loss_num = float(get_last_field(file_path)) # 打开文件并读取最后一行的最后一项
-        ax_data.append(loss_num)
-        #file_path = file_path_pre + str(threshold) +''
+    loss_num = float(get_last_field(file_path)) # 打开文件并读取最后一行的最后一项
+    ax_data.append(loss_num)
+     #file_path = file_path_pre + str(threshold) +''
     
     #FBM
-    file_path_pre = data_dir + 'pbs/'+testcase+'/'
-    # for flow_rate in flow_rates:
-    file_path = file_path_pre  +'loss_packet.csv'
-    
+    file_path_pre = os.path.join(
+        data_dir,
+        "pbs",
+        testcase
+    )
+
+    file_path = os.path.join(
+        file_path_pre,
+        "loss_packet.csv"
+    )
     loss_num = float(get_last_field(file_path)) # 打开文件并读取最后一行的最后一项
     ax_data.append(loss_num)
 
