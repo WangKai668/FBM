@@ -18,7 +18,7 @@
  */
 
 #include "switch-mmu.h"
-
+#include <filesystem>
 #include "off-chip-buffer.h"
 
 #include "ns3/boolean.h"
@@ -52,7 +52,8 @@ SwitchMmu::Stats::
           0), // nTotalStoredPackets、nTotalBmDropPackets和nTotalOnChipBufferStoredPackets进行了初始化。
       nTotalBmDropPackets(0),
       nTotalBmDropPacketsSize(0),
-      nTotalOnChipBufferStoredPackets(0)
+      nTotalOnChipBufferStoredPackets(0),
+      perusStoredPackets(0)
 {
 }
 
@@ -129,6 +130,11 @@ SwitchMmu::GetTypeId() // 段代码是C++中类SwitchMmu的成员函数GetTypeId
                           DoubleValue(1.0),
                           MakeDoubleAccessor(&SwitchMmu::Simlulator_time_stop),
                           MakeDoubleChecker<double>())
+            .AddAttribute("now_algorithm_name",
+                          "Current buffer management algorithm directory name",
+                          StringValue("BMS"), //先默认设置为BMS
+                          MakeStringAccessor(&SwitchMmu::now_algorithm_name),
+                          MakeStringChecker())
             .AddAttribute("BMAlgorithm",
                           "Buffer management algorithm",
                           EnumValue(SwitchMmu::BmAlgorithm(TDT)),
@@ -191,11 +197,6 @@ SwitchMmu::GetTypeId() // 段代码是C++中类SwitchMmu的成员函数GetTypeId
                           DoubleValue(1),
                           MakeDoubleAccessor(&SwitchMmu::eta_MD),
                           MakeDoubleChecker<double>())              
-            .AddAttribute("now_algorithm_name", // 当前算法名
-                          "BMS",
-                          StringValue("BMS"),
-                          MakeStringAccessor(&SwitchMmu::now_algorithm_name),
-                          MakeStringChecker())
             .AddAttribute("LruUpdateTimeWindow", // 是属性的名称，表示LRU更新状态之间的时间
                           "The Time between LRU Update Status",
                           TimeValue(MicroSeconds(
@@ -299,40 +300,6 @@ SwitchMmu::SwitchMmu() // 构造函数SwitchMmu::SwitchMmu()被定义,来完成�
         {{12, 11, 10}, {3.0 / 4, 3.0 / 4, 3.0 / 4, 3.0 / 4, 5.0 / 8}}, // 3DT算法
         {{10, 8, 7}, {5.0 / 8, 5.0 / 8, 5.0 / 8, 5.0 / 8, 9.0 / 16}}};
 
-    // 同时输出到文件中便于观察数据
-    std::string fileName;
-    // 使用字符串流动态构建文件路径
-    std::stringstream filePathStream;
-    // cout << "test1: " << baseFilePath << " " << nextFilePath << " " << baseFilePath + nextFilePath   << endl;
-    filePathStream << baseFilePath + now_algorithm_name + "/" + nextFilePath << "loss_packet.csv";
-
-    fileName = filePathStream.str();
-    ofstream fout(fileName, ios::app);
-    fout << "TimeStart,TimeEnd,LossPacketNum,LossPacketRate" << endl;
-    fout.close();
-
-    // 同时输出到文件中便于观察数据***********************
-    std::string filename1;
-    // 使用字符串流动态构建文件路径
-    std::stringstream filepathstream1;
-    filepathstream1 << baseFilePath + now_algorithm_name + "/" + nextFilePath
-                    << "cost_etc_test_port0.csv";
-    filename1 = filepathstream1.str();
-    ofstream fout1(filename1, ios::app);
-    fout1 << "TimeStart,TimeEnd,Cost_min_S,Cost_min_D,ETC" << endl;
-    fout1.close();
-
-    // 同时输出到文件中便于观察数据***********************
-    std::string filename2;
-    // 使用字符串流动态构建文件路径
-    std::stringstream filepathstream2;
-    filepathstream2 << baseFilePath + now_algorithm_name + "/" + nextFilePath
-                    << "cost_etc_test_port1.csv";
-    filename2 = filepathstream2.str();
-    ofstream fout2(filename2, ios::app);
-    fout2 << "TimeStart,TimeEnd,Cost_min_S,Cost_min_D,ETC" << endl;
-    fout2.close();
-
     LossPacketNum_Last = 0;
     LossPacketNumTotalSizeLast = 0;
     Timer_Mill_Loss = Seconds(0);
@@ -345,6 +312,80 @@ SwitchMmu::SwitchMmu() // 构造函数SwitchMmu::SwitchMmu()被定义,来完成�
 SwitchMmu::~SwitchMmu()
 {
     NS_LOG_FUNCTION(this);
+}
+//文件的写入改了个位置，
+std::string
+SwitchMmu::GetLossPacketFilePath() const  
+{
+    namespace fs = std::filesystem;
+    // baseFilePath 已经是：
+    // .../tests/data/pbs/tc2-05/
+    fs::path outputDirectory(baseFilePath);
+    // tc2-08 等特殊实验需要继续增加参数目录
+    if (if_test8)
+    {
+        if (m_bmAlgorithm == DEEPHIR)
+        {
+            std::ostringstream thresholdDirectory;
+            thresholdDirectory << std::fixed
+                               << std::setprecision(1)
+                               << Deeohir_threshold
+                               << "M";
+            outputDirectory /= thresholdDirectory.str();
+        }
+
+        outputDirectory /= std::to_string(flow_rate);
+    }
+    else if (if_test9)
+    {
+        if (m_bmAlgorithm == DEEPHIR)
+        {
+            std::ostringstream thresholdDirectory;
+
+            thresholdDirectory << std::fixed
+                               << std::setprecision(1)
+                               << Deeohir_threshold
+                               << "M";
+            outputDirectory /= thresholdDirectory.str();
+        }
+    }
+    return (outputDirectory / "loss_packet.csv").string();
+}
+
+
+void
+SwitchMmu::InitializeLossPacketFile()
+{
+    namespace fs = std::filesystem;
+    const std::string fileName = GetLossPacketFilePath();
+    const fs::path filePath(fileName);
+    const fs::path outputDirectory = filePath.parent_path();
+    std::error_code errorCode;
+    fs::create_directories(outputDirectory, errorCode);
+
+    if (errorCode)
+    {
+        NS_FATAL_ERROR("创建 loss_packet.csv 输出目录失败。" << " directory=" << outputDirectory.string() << " error=" << errorCode.message());
+    }
+    std::ofstream fout(fileName, std::ios::out | std::ios::trunc);
+    if (!fout.is_open())
+    {
+        NS_FATAL_ERROR(
+            "无法创建 loss_packet.csv。"
+            << " fileName=" << fileName);
+    }
+    /*
+     * 下面实际写入6列数据，因此表头也必须是6列。
+     */
+    // fout << "TimeStart,"
+    //         "TimeEnd,"
+    //         "LossPacketSizeKbit,"
+    //         "CumulativeLossRate,"
+    //         "PeriodLossRate,"
+    //         "CumulativeLossPacketNum"
+    //      << std::endl;
+    fout.close();
+    std::cout << "[LossPacketCSV] 创建成功: "<< fileName << std::endl;
 }
 
 // 这段代码定义了一个返回m_stats成员变量常引用的成员函数GetStats()，并在函数内部输出函数的调用信息
@@ -450,6 +491,7 @@ SwitchMmu::DoInitialize()
 
     m_node = nullptr; // m_node设置为nullptr，以确保在初始化时节点指针为nullptr
 
+    InitializeLossPacketFile();
     Object::DoInitialize(); // 调用了基类Object的DoInitialize函数，以执行基类的初始化操作
 }
 
@@ -1836,82 +1878,28 @@ SwitchMmu::FindBufferLocation(Ptr<Packet> packet)
         {
             LossPacketRate = 0;
         }
-
-        // 同时输出到文件中便于观察数据
-        std::string fileName;
-
-        // 使用字符串流动态构建文件路径
-        std::stringstream filePathStream;
-        // cout << "test2 " << baseFilePath << " " << nextFilePath << " "
-        //      << baseFilePath + nextFilePath << endl;
-
-        if (if_test8)
+        // 获取和初始化阶段完全一致的文件路径
+        const std::string fileName = GetLossPacketFilePath();
+        std::ofstream fout(fileName, std::ios::out | std::ios::app);
+        if (!fout.is_open())
         {
-            if (m_bmAlgorithm == DEEPHIR)
-            {
-                filePathStream << baseFilePath + now_algorithm_name + "/" + nextFilePath + "/" +
-                                      to_string_with_precision(Deeohir_threshold, 1) + "M/" +
-                                      to_string(flow_rate) + "/"
-                               << "loss_packet.csv";
-                // cout << "loss路径： "
-                //      << baseFilePath + now_algorithm_name + "/" + nextFilePath + "/" +
-                //             to_string_with_precision(Deeohir_threshold, 1) + "M/" +
-                //             to_string(flow_rate) + "/"
-                //      << "loss_packet.csv" << endl;
-            }
-            else
-            {
-                filePathStream << baseFilePath + now_algorithm_name + "/" + nextFilePath + "/" +
-                                      to_string(flow_rate) + "/"
-                               << "loss_packet.csv";
-                // cout << "loss路径： "
-                //      << baseFilePath + now_algorithm_name + "/" + nextFilePath + "/" +
-                //             to_string(flow_rate) + "/"
-                //      << "loss_packet.csv" << endl;
-            }
+            NS_FATAL_ERROR(
+                "写入 loss_packet.csv 时打开文件失败。"
+                << " fileName=" << fileName
+                << " baseFilePath=" << baseFilePath
+                << " now_algorithm_name=" << now_algorithm_name
+                << " nextFilePath=" << nextFilePath);
         }
-        else if (if_test9)
+        const double periodPacketNumber = static_cast<double>(m_stats.perusStoredPackets) +LossPacketNum;
+        double periodLossRate = 0.0;
+        if (periodPacketNumber > 0.0)
         {
-            if (m_bmAlgorithm == DEEPHIR)
-            {
-                // filePathStream << "#####yes DEEPHIR#####";
-                filePathStream << baseFilePath + now_algorithm_name + "/" + nextFilePath + "/" +
-                                      to_string_with_precision(Deeohir_threshold, 1) + "M/"
-                               << "loss_packet.csv";
-                // cout << "#####yes DEEPHIR#####" << endl;
-                // cout << "loss路径： "
-                //      << baseFilePath + now_algorithm_name + "/" + nextFilePath + "/" +
-                //             to_string_with_precision(Deeohir_threshold, 1) + "M/"
-                //      << "loss_packet.csv" << endl;
-            }
-            else
-            {
-                // filePathStream << "#####not DEEPHIR#####";
-                filePathStream << baseFilePath + now_algorithm_name + "/" + nextFilePath
-                               << "loss_packet.csv";
-                // cout << "#####not DEEPHIR#####" << endl;
-                // cout << "loss路径： " << baseFilePath + now_algorithm_name + "/" + nextFilePath
-                //      << "loss_packet.csv" << endl;
-            }
-        }
-        else
-        {
-            filePathStream << baseFilePath + now_algorithm_name + "/" + nextFilePath
-                           << "loss_packet.csv";
-            // cout << "loss路径： " << baseFilePath + now_algorithm_name + "/" + nextFilePath
-            //      << "loss_packet.csv" << endl;
+            periodLossRate = LossPacketNum / periodPacketNumber * 100.0;
         }
 
-        // filePathStream << baseFilePath + now_algorithm_name + "/" + nextFilePath + "/" +
-        //             to_string(Deeohir_threshold) + "M/" + to_string(flow_rate) + "/"
-        //      << "loss_packet.csv";
+        fout << Timer_Mill_Loss.GetSeconds() << "," << Simulator::Now().GetSeconds() << "," << LossPacketSize * 8.0 / 1000.0 << ","  << LossPacketRate << ","
+            << periodLossRate << "," << LossPacketNumTotal  << std::endl;
 
-        fileName = filePathStream.str();
-        ofstream fout(fileName, ios::app);
-        fout << Timer_Mill_Loss.GetSeconds() << "," << Simulator::Now().GetSeconds() << ","
-             << LossPacketSize * 8.0 / 1000.0 << "," << LossPacketRate << ","
-             << LossPacketNum / (m_stats.perusStoredPackets + LossPacketNum) * 100 << ","
-             << LossPacketNumTotal << endl;
         fout.close();
 
         m_stats.perusStoredPackets = 0;
