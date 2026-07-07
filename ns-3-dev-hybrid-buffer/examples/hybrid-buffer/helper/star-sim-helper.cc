@@ -349,11 +349,6 @@ StarSimHelper::SetupRouterQueueDisc()
                 // leafCls->SetQuantum(quantums[cs]);
                 // leafCls->SetQueueDisc(redQdisc);
                 // lpQdisc->AddQueueDiscClass(leafCls);
-<<<<<<< HEAD
-=======
-                Ptr<FifoQueueDisc> fifoQdisc = m_routerFifoQdiscFactory.Create<FifoQueueDisc>();
->>>>>>> upstream/main
-
                 Ptr<FifoQueueDisc> fifoQdisc = m_routerFifoQdiscFactory.Create<FifoQueueDisc>();
                 Ptr<DrrFlow> leafCls = CreateObject<DrrFlow>();
                 leafCls->SetQuantum(quantums[cs]);
