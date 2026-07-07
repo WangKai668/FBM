@@ -26,16 +26,11 @@ class SimHelper : public Object
 
     virtual ~SimHelper();
 
-    void PeriodicFlowStats(Time interval, const std::string& filename);
-
-    void PrintFlowStatsToFile(Ptr<FlowMonitor> monitor, Time interval, const std::string& filename);
-
     void Run();
     // Setup all
     void Setup();
     // Post actions after simulation is done
     virtual void Finish();
-
 
     // MTU size in bytes
     static const uint32_t MTU_BYTES = 1480; //9600;//1480; //default 9600;
@@ -96,8 +91,10 @@ class SimHelper : public Object
 
     virtual void ConfigTopology() = 0;
     // NOTE: transport configuration should be run AFTER topology configuration
+    // virtual void ConfigTransport(std::string socketType = "tcp",//"udp", modify be wk  default udp
+    //                              std::string ccType = "ns3::TcpDctcp"); //TcpDctcp"); //TcpCubic");  default TcpNewReno");
     virtual void ConfigTransport(std::string socketType = "udp",//"udp", modify be wk  default udp
-                                 std::string ccType = "ns3::TcpNewReno"); //TcpDctcp"); //TcpCubic");  default TcpNewReno");
+                                std::string ccType = "ns3::TcpNewReno"); //TcpDctcp"); //TcpCubic");  default TcpNewReno");
 
     virtual void ConfigRoute()
     {
@@ -167,8 +164,6 @@ class SimHelper : public Object
         AddFlow(flow);
     }
 
-
-
   protected:
     Time m_startTime;
     Time m_stopTime;
@@ -177,16 +172,12 @@ class SimHelper : public Object
     std::string m_simName;
     FlowMonitorHelper m_flowMonitorHelper;
 
-
-
     QueueSize m_reorderQueueSize;
     ObjectFactory m_mmuFactory;
     ObjectFactory m_offChipBufferFactory;
 
     std::vector<FlowInfo> m_flows;
 };
-
-
 
 inline std::ostream&
 operator<<(std::ostream& os, const SimHelper::FlowInfo& flow)

@@ -86,7 +86,7 @@ plt.plot(x2, y2, label='port2', linestyle='--', color='green',marker='d',linewid
 plt.plot(x3, y3, label='port3', linestyle='-.', color='orange',marker='^',linewidth=3)
 
 ax2=ax.twinx()
-ax2.set_ylim(-25, 175)
+ax2.set_ylim(-25, 370)
 ax2.set_ylabel('# of Packet Loss', fontsize=font_size)
 ax2.tick_params(axis='y', direction='in', labelsize=font_size)
 

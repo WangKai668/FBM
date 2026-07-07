@@ -193,7 +193,6 @@ run()
   output_file_real="${new_output_real}/${testcase}.txt"
 
   echo "Starting testcase $testcase at $(date)"
-  echo "TrafficGen目录：$TRAFFIC_GEN_DIR"
 
   mkdir -p "$new_output_real"
 

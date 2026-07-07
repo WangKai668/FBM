@@ -153,33 +153,11 @@ SimHelper::SetupTracing()
     TraceFlows();
 }
 
-
-
-static Time prevTime = Seconds (0);
-static uint32_t prev = 0;
-
-static void
-TraceThroughput (Ptr<FlowMonitor> monitor)
-{
-  	FlowMonitor::FlowStatsContainer stats = monitor->GetFlowStats ();
- 	std::map<FlowId, FlowMonitor::FlowStats>::const_iterator itr = stats.begin();  //检测第一条流
- 	//下边是最后一条流最后一条流
- 	// std::map<FlowId, FlowMonitor::FlowStats>::const_iterator itr = stats.end(); itr--;
-
-   	Time curTime = Now ();
-    std::cout <<" debugwk-TraceThroughput: "<<  Simulator::Now().GetMilliSeconds() << " " << 8 * (itr->second.txBytes - prev) / (1000 * 1000 * (curTime.GetSeconds () - prevTime.GetSeconds ())) <<""<< std::endl;
-    prevTime = curTime;
-   	prev = itr->second.txBytes;
-   	Simulator::Schedule (Seconds (80*1e-6), &TraceThroughput, monitor);
-}
-
-
 void
 SimHelper::TraceFlows()
 {
     NS_LOG_FUNCTION(this);
-    Ptr<FlowMonitor> monitor = m_flowMonitorHelper.InstallAll();
-    // Simulator::Schedule (Seconds (0 + 0.0001), &TraceThroughput, monitor);
+    m_flowMonitorHelper.InstallAll();
 }
 
 void
@@ -204,7 +182,6 @@ SimHelper::Run()
     Setup();
     Simulator::Stop(m_stopTime);
     std::cout << "Run Simulation." << std::endl;
-    // PeriodicFlowStats(Seconds(100.0*1e-6), "flow-stats.csv"); // Print stats every 1 second to CSV file
     Simulator::Run();
     std::cout << "Simulation Done" << std::endl;
     Simulator::Destroy();
@@ -218,76 +195,6 @@ SimHelper::Finish()
     std::stringstream flowMonitorFname;
     flowMonitorFname << "flow-monitor-" << m_simName << ".xml";
     m_flowMonitorHelper.GetMonitor()->SerializeToXmlFile(flowMonitorFname.str(), false, false);
-}
-
-// Add this new function to your SimHelper class
-void
-SimHelper::PeriodicFlowStats(Time interval, const std::string& filename)
-{
-    NS_LOG_FUNCTION(this << interval << filename);
-    Ptr<FlowMonitor> monitor = m_flowMonitorHelper.GetMonitor();
-    
-    // Open the file in append mode (creates if doesn't exist)
-    std::ofstream outFile;
-    outFile.open(filename, std::ios_base::app);
-    if (!outFile.is_open()) {
-        NS_LOG_ERROR("Could not open file " << filename << " for writing flow stats");
-        return;
-    }
-    outFile << "Simulation Time,Flow ID,Source IP,Source Port,Destination IP,Destination Port,Tx Packets,Rx Packets,Lost Packets,Throughput (kbps),Mean Delay (s)" << std::endl;
-    outFile.close();
-    
-    // Create a recurring event to print flow stats
-    Simulator::Schedule(interval, &SimHelper::PrintFlowStatsToFile, this, monitor, interval, filename);
-}
-
-void
-SimHelper::PrintFlowStatsToFile(Ptr<FlowMonitor> monitor, Time interval, const std::string& filename)
-{
-    NS_LOG_FUNCTION(this << monitor << interval << filename);
-    
-    // Get flow statistics
-    monitor->CheckForLostPackets();
-    Ptr<Ipv4FlowClassifier> classifier = DynamicCast<Ipv4FlowClassifier>(m_flowMonitorHelper.GetClassifier());
-    FlowMonitor::FlowStatsContainer stats = monitor->GetFlowStats();
-    
-    // Open file in append mode
-    std::ofstream outFile;
-    outFile.open(filename, std::ios_base::app);
-    if (!outFile.is_open()) {
-        NS_LOG_ERROR("Could not open file " << filename << " for writing flow stats");
-        return;
-    }
-    
-    // Write statistics for each flow
-    for (auto it = stats.begin(); it != stats.end(); ++it) {
-        Ipv4FlowClassifier::FiveTuple t = classifier->FindFlow(it->first);
-        
-        double throughput = 0.0;
-        double meanDelay = 0.0;
-        
-        if (it->second.rxPackets > 0) {
-            throughput = it->second.rxBytes * 8.0 / (it->second.timeLastRxPacket - it->second.timeFirstTxPacket).GetSeconds() / 1000;
-            meanDelay = it->second.delaySum.GetSeconds() / it->second.rxPackets;
-        }
-        
-        outFile << Simulator::Now().GetSeconds() << ","
-                << it->first << ","
-                << t.sourceAddress << ","
-                << t.sourcePort << ","
-                << t.destinationAddress << ","
-                << t.destinationPort << ","
-                << it->second.txPackets << ","
-                << it->second.rxPackets << ","
-                << it->second.lostPackets << ","
-                << throughput << ","
-                << meanDelay << std::endl;
-    }
-    
-    outFile.close();
-    
-    // Schedule next print
-    Simulator::Schedule(interval, &SimHelper::PrintFlowStatsToFile, this, monitor, interval, filename);
 }
 
 } // namespace hb

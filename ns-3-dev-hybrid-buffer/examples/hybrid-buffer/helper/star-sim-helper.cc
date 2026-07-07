@@ -125,13 +125,13 @@ StarSimHelper::CreateTopology()
     PointToPointReorderHelper sendP2pHelper;
     sendP2pHelper.SetDeviceAttribute("DataRate", DataRateValue(m_sendLinkCapacity));
     sendP2pHelper.SetChannelAttribute("Delay", TimeValue(m_sendLinkDelay));
-    sendP2pHelper.SetQueueA("ns3::DropTailQueue", "MaxSize", QueueSizeValue(m_reorderQueueSize));
+    sendP2pHelper.SetQueueA("ns3::DropTailQueue", "MaxSize", QueueSizeValue(QueueSize("2p"))); //QueueSizeValue(m_reorderQueueSize));
     sendP2pHelper.SetQueueB("ns3::DropTailQueue", "MaxSize", QueueSizeValue(QueueSize("2p")));
 
     PointToPointReorderHelper recvP2pHelper;
     recvP2pHelper.SetDeviceAttribute("DataRate", DataRateValue(m_recvLinkCapacity));
     recvP2pHelper.SetChannelAttribute("Delay", TimeValue(m_recvLinkDelay));
-    recvP2pHelper.SetQueueA("ns3::DropTailQueue", "MaxSize", QueueSizeValue(m_reorderQueueSize));
+    recvP2pHelper.SetQueueA("ns3::DropTailQueue", "MaxSize", QueueSizeValue(QueueSize("2p"))); //QueueSizeValue(m_reorderQueueSize));
     recvP2pHelper.SetQueueB("ns3::DropTailQueue", "MaxSize", QueueSizeValue(QueueSize("2p")));
 
     NS_LOG_LOGIC("Install links");
@@ -317,7 +317,7 @@ StarSimHelper::SetupRouterQueueDisc()
                 // if (!redQdisc) {
                 //     std::cout<<"Failed to create RedQueueDisc!"<< std::endl;
                 // }
-                // std::cout<<"RedQueueDisc created: " << redQdisc->GetInstanceTypeId()<< std::endl;
+                // // std::cout<<"RedQueueDisc created: " << redQdisc->GetInstanceTypeId()<< std::endl;
 
                 // Ptr<QueueDiscClass> leafCls = CreateObject<QueueDiscClass>();
                 // leafCls->SetQueueDisc(redQdisc);
@@ -349,6 +349,10 @@ StarSimHelper::SetupRouterQueueDisc()
                 // leafCls->SetQuantum(quantums[cs]);
                 // leafCls->SetQueueDisc(redQdisc);
                 // lpQdisc->AddQueueDiscClass(leafCls);
+<<<<<<< HEAD
+=======
+                Ptr<FifoQueueDisc> fifoQdisc = m_routerFifoQdiscFactory.Create<FifoQueueDisc>();
+>>>>>>> upstream/main
 
                 Ptr<FifoQueueDisc> fifoQdisc = m_routerFifoQdiscFactory.Create<FifoQueueDisc>();
                 Ptr<DrrFlow> leafCls = CreateObject<DrrFlow>();
@@ -360,78 +364,6 @@ StarSimHelper::SetupRouterQueueDisc()
         }
     }
 }
-
-// void
-// StarSimHelper::SetupRouterQueueDisc()
-// {
-//     NS_LOG_FUNCTION(this);
-//     // Delete the existing root qdisc
-//     // The root queue qidsc was installed when assigning IP addresses
-//     Ptr<TrafficControlLayer> tc = m_hub->GetObject<TrafficControlLayer>();
-//     for (uint32_t i = 0; i < m_nSpokes; i++)
-//     {
-//         Ptr<NetDevice> dev = m_hubDevices.Get(i);
-//         tc->DeleteRootQueueDiscOnDevice(dev);
-//     }
-//     // 1st layer:                 sp
-//     // 2nd layer:       sp(hp)                wrr(lp)
-//     // 3nd layer: cs0, cs1, cs2     cs3, cs4, ..., cs7
-//     TrafficControlHelper tcHelper;
-//     tcHelper.SetRootQueueDisc("ns3::PrioQueueDisc"); 
-//     // tcHelper.SetRootQueueDisc("ns3::PrioQueueDisc"); //modify by wangkai
-
-//     QueueDiscContainer rootQdiscs = tcHelper.Install(m_hubDevices);
-
-//     // Install qdiscs for each output port
-//     for (uint32_t i = 0; i < m_nSpokes; i++)
-//     {
-//         // layer 1: sp scheduler
-//         Ptr<PrioQueueDisc> rootQdisc = rootQdiscs.Get(i)->GetObject<PrioQueueDisc>();
-//         rootQdisc->SetLayerId(QueueDisc::priority);
-
-//         {
-//             // layer 2 (hp): sp scheduler
-//             Ptr<PrioQueueDisc> hpQdisc = CreateObject<PrioQueueDisc>();
-//             hpQdisc->SetLayerId(QueueDisc::queue);
-//             Ptr<QueueDiscClass> hpCls = CreateObject<QueueDiscClass>();
-//             hpCls->SetQueueDisc(hpQdisc);
-//             rootQdisc->AddQueueDiscClass(hpCls);
-
-//             {
-//                 // layer 3 (cs0-cs2): 3 fifo queues
-//                 for (uint32_t cs = 0; cs < 3; cs++)
-//                 {
-//                     Ptr<FifoQueueDisc> leafQdisc = m_routerFifoQdiscFactory.Create<FifoQueueDisc>();
-//                     Ptr<QueueDiscClass> leafCls = CreateObject<QueueDiscClass>();
-//                     leafCls->SetQueueDisc(leafQdisc);
-//                     hpQdisc->AddQueueDiscClass(leafCls);
-//                 }
-//             }
-//         }
-
-//         {
-//             // layer 2 (lp): drr scheduler
-//             Ptr<DrrQueueDisc> lpQdisc = CreateObject<DrrQueueDisc>();
-//             lpQdisc->SetLayerId(QueueDisc::queue);
-//             Ptr<QueueDiscClass> lpCls = CreateObject<QueueDiscClass>();
-//             lpCls->SetQueueDisc(lpQdisc);
-//             rootQdisc->AddQueueDiscClass(lpCls);
-
-//             // layer 3 (cs3-cs7): 5 fifo queues
-//             {
-//                 uint32_t quantums[5] = {2, 2, 1, 1, 1};
-//                 for (uint32_t cs = 0; cs < 5; cs++)
-//                 {
-//                     Ptr<FifoQueueDisc> leafQdisc = m_routerFifoQdiscFactory.Create<FifoQueueDisc>();
-//                     Ptr<DrrFlow> leafCls = CreateObject<DrrFlow>();
-//                     leafCls->SetQuantum(quantums[cs]);
-//                     leafCls->SetQueueDisc(leafQdisc);
-//                     lpQdisc->AddQueueDiscClass(leafCls);
-//                 }
-//             }
-//         }
-//     }
-// }
 
 void
 StarSimHelper::SetupRouterPacketFilter()
@@ -516,8 +448,6 @@ StarSimHelper::SetupDefaultTraffic()
     }
 }
 
-
-
 void
 StarSimHelper::CreateTraffic()
 {
@@ -551,10 +481,6 @@ StarSimHelper::CreateTraffic()
             tcpSendHelper.SetAttribute("SendSize", UintegerValue(payload));
             tcpSendHelper.SetAttribute("MaxBytes", UintegerValue(flow.size));
             sourceApp = tcpSendHelper.Install(m_spokes.Get(flow.srcId));
-
-        //    Config::ConnectWithoutContext(
-        //         "/NodeList/*/$ns3::TcpL4Protocol/SocketList/*/CongestionWindow",
-        //         MakeCallback(&GlobalCwndTracer));
         }
         else
         {

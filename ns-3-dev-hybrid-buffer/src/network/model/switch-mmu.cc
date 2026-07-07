@@ -971,15 +971,11 @@ SwitchMmu::CheckBaselineBmAlgorithm(
 
 //  DeepHir算法
 SwitchMmu::BmResult
-SwitchMmu::CheckDeepHirBmAlgorithm(
-    Ptr<Packet>
-        packet) // 该函数用于检查基准缓存管理算法，根据输入的数据包信息和当前交换机状态，确定输入数据包的缓存位置
+SwitchMmu::CheckDeepHirBmAlgorithm(Ptr<Packet> packet) // 该函数用于检查基准缓存管理算法，根据输入的数据包信息和当前交换机状态，确定输入数据包的缓存位置
 {
     NS_LOG_FUNCTION(this << packet);
     static uint64_t total_packet_num = 0;
     total_packet_num++;
-    // cout << "total_packet_num:" << total_packet_num << endl;
-    // 跑的测试脚本8 要更改BMS阈值
     if (if_change_threshold)
     {
         m_wredTh = {static_cast<uint64_t>(Deeohir_threshold * 1024 * 1024),
@@ -1019,42 +1015,27 @@ SwitchMmu::CheckDeepHirBmAlgorithm(
         // 打印当前端口队列、SRAM队列、DRAM队列
         cout << "当前端口队列长度: " << qlen << " 剩余SRAM缓存: " << m_onChipBufferRemain << "剩余DRAM缓存: " << dramRemain << endl;
     }
-    
     NS_ASSERT_MSG(priority <= 1, "优先级只有2个");
     if ((qlen + pktSize) <= m_wredTh[priority] && m_onChipBufferRemain >= pktSize && (qlen + pktSize) <= DT_Threshold)
     {
-            bmResult = BmResult(TO_ONCHIPBUFFER);
-            if (print_flag == 1){
-            cout << "Time:" << Simulator::Now() << "  packet:" << packet->GetUid() <<" pktSize: "<<packet->GetSize()<< " 端口:" << port
-                 << " 存入片内" << endl;
-            }
+        bmResult = BmResult(TO_ONCHIPBUFFER);
+        cout << "Time:" << Simulator::Now() << "  packet:" << packet->GetUid() << " 端口:" << port
+            << " 存入片内" << endl;
     }
     else
     {
-        if ((wcacheSize - wcacheUsed) >= pktSize && dramRemain >= pktSize)
-        {
-            if (print_flag == 1){
-            cout << "Time:" << Simulator::Now() << "  packet:" << packet->GetUid() <<" pktSize: "<<packet->GetSize()
-                 << " 端口:" << port << " 存入片外" << endl;
-            }
+        if ((wcacheSize - wcacheUsed) >= pktSize && dramRemain >= pktSize) {
+            cout << "Time:" << Simulator::Now() << "  packet:" << packet->GetUid()<< " 端口:" << port << " 存入片外" << endl;
             bmResult = BmResult(TO_OFFCHIPBUFFER);
         }
     }
     if (bmResult == DROP)
     {
-        if (wcacheSize - wcacheUsed < pktSize)
-        {
-            if (print_flag == 1){
-            cout << "Time:" << Simulator::Now() << "  packet:" << packet->GetUid()
-                 << " 端口:" << port << " 丢包原因:Dram带宽不足(wcahe不够)" << endl;
-            }
+        if (wcacheSize - wcacheUsed < pktSize){
+            cout << "Time:" << Simulator::Now() << "  packet:" << packet->GetUid()<< " 端口:" << port << " 丢包原因:Dram带宽不足(wcahe不够)" << endl;
         }
-        else
-        {
-            if (print_flag == 1){
-            cout << "Time:" << Simulator::Now() << " packet:" << packet->GetUid()
-                 << " 端口:" << port << " 丢包原因:未知" << endl;
-            }
+        else{
+            cout << "Time:" << Simulator::Now() << " packet:" << packet->GetUid() << " 端口:" << port << " 丢包原因:未知" << endl;
         }
     }
 
@@ -1136,9 +1117,7 @@ SwitchMmu::Check3DTBmAlgorithm(Ptr<Packet> packet) // PBS-new   //kkkk
             return;
         }
 
-        if (bmResult == BmResult(DROP) &&
-            intendedStoreSram &&
-            Pqs + static_cast<double>(pktSize) > dtThresholdBytes)
+        if (bmResult == BmResult(DROP) && intendedStoreSram && Pqs + static_cast<double>(pktSize) > dtThresholdBytes)
         {
             cout << "Pqs + pktSize:" << Pqs + pktSize
                  << "| DT_Threshold:" << dtThresholdBytes
@@ -1167,17 +1146,13 @@ SwitchMmu::Check3DTBmAlgorithm(Ptr<Packet> packet) // PBS-new   //kkkk
             {
                 cout << "Time:" << Simulator::Now()
                      << "  packet:" << packet->GetUid()
-                     << " 端口:" << port
-                     << " 丢包原因:Dram带宽不足(wcahe不够)"
-                     << endl;
+                     << " 端口:" << port << " 丢包原因:Dram带宽不足(wcahe不够)" << endl;
             }
             else
             {
                 cout << "Time:" << Simulator::Now()
                      << " packet:" << packet->GetUid()
-                     << " 端口:" << port
-                     << " 丢包原因:未知"
-                     << endl;
+                     << " 端口:" << port << " 丢包原因:未知"<< endl;
             }
         }
     };
@@ -1334,35 +1309,23 @@ SwitchMmu::Check3DTBmAlgorithm(Ptr<Packet> packet) // PBS-new   //kkkk
     const double previousQueueDramWriteRate = WriteDram_Rate_Cycle[port][priority][qIndex];
     WriteDram_Rate_Cycle_last[port][priority][qIndex] = previousQueueDramWriteRate;
 
-    ReadSram_Rate_Cycle[port][priority][qIndex] =
-        static_cast<double>(ReadSram_Size_Cycle[port][priority][qIndex]) *
-        8.0 / actualPeriodNs;
+    ReadSram_Rate_Cycle[port][priority][qIndex] =static_cast<double>(ReadSram_Size_Cycle[port][priority][qIndex]) *8.0 / actualPeriodNs;
 
-    WriteDram_Rate_Cycle[port][priority][qIndex] =
-        static_cast<double>(WriteDram_Size_Cycle[port][priority][qIndex]) *
-        8.0 / actualPeriodNs;
+    WriteDram_Rate_Cycle[port][priority][qIndex] =static_cast<double>(WriteDram_Size_Cycle[port][priority][qIndex]) * 8.0 / actualPeriodNs;
 
-    ReadDram_Rate_Cycle[port][priority][qIndex] =
-        static_cast<double>(ReadDram_Size_Cycle[port][priority][qIndex]) *
-        8.0 / actualPeriodNs;
+    ReadDram_Rate_Cycle[port][priority][qIndex] = static_cast<double>(ReadDram_Size_Cycle[port][priority][qIndex]) *8.0 / actualPeriodNs;
 
     // 本周期总到达量和总到达速率
     const double actualArrivalBytes = static_cast<double>(Packet_Size_Cycle[port][priority][qIndex]);
     const double actualArrivalRate =  actualArrivalBytes * 8.0 / actualPeriodNs; // Gbps
     
-    const double Cqs =
-        ReadSram_Rate_Cycle[port][priority][qIndex];
-    const double temp_for_record_last_ewma_r =
-        EWMA_R[port][priority][qIndex];
-    const double temp_for_record_last_T =
-        math_mETC;
-    const double temp_for_record_last_cs_out =
-        cs_out_array[port][priority][qIndex];
-    const double temp_for_record_last_delta_q =
-        delta_Q_array[port][priority][qIndex];
+    const double Cqs = ReadSram_Rate_Cycle[port][priority][qIndex];
+    const double temp_for_record_last_ewma_r =EWMA_R[port][priority][qIndex];
+    const double temp_for_record_last_T =math_mETC;
+    const double temp_for_record_last_cs_out =cs_out_array[port][priority][qIndex];
+    const double temp_for_record_last_delta_q = delta_Q_array[port][priority][qIndex];
 
     //  更新输入速率 EWMA
-
     const double gamma = std::clamp(static_cast<double>(EWMA_W), 0.0, 1.0);
 
     if (T_seq[port][priority][qIndex] == 0 || EWMA_R[port][priority][qIndex] <= EPS)
@@ -1380,7 +1343,6 @@ SwitchMmu::Check3DTBmAlgorithm(Ptr<Packet> packet) // PBS-new   //kkkk
     if (print_flag == 1)
     {
         cout << "wktest port " << port << " priority " << priority  << " qIndex " << qIndex << endl;
-
         cout << Simulator::Now().GetNanoSeconds()
              << " states_in_end_of_period "
              << T_seq[port][priority][qIndex]
@@ -1427,9 +1389,7 @@ SwitchMmu::Check3DTBmAlgorithm(Ptr<Packet> packet) // PBS-new   //kkkk
     //可用带宽
     const double actualDramExcessBytes = std::max(0.0, actualArrivalRate - actualAvailableDramRate) * actualPeriodNs / 8.0;
     //实际效用
-    U1Ds =
-        1.0 /
-        std::max(1.0, actualDramExcessBytes / BYTES_PER_MB);
+    U1Ds = 1.0 / std::max(1.0, actualDramExcessBytes / BYTES_PER_MB);
 
     U2Ds = -actualArrivalRate / actualAvailableDramRate;
 
@@ -1472,10 +1432,7 @@ SwitchMmu::Check3DTBmAlgorithm(Ptr<Packet> packet) // PBS-new   //kkkk
     m_Cost_ETC[port][priority][qIndex] =  NanoSeconds(roundedPeriodNs);
 
     const double newT = static_cast<double>( m_Cost_ETC[port][priority][qIndex].GetNanoSeconds());
-    const double sQuarterDrainTimeNs =
-        ewmaRate > EPS
-            ? (S / 4.0) * 8.0 / ewmaRate
-            : 0.0;
+    const double sQuarterDrainTimeNs = ewmaRate > EPS ? (S / 4.0) * 8.0 / ewmaRate : 0.0;
 
     if (print_flag == 1)
     {
@@ -1493,12 +1450,10 @@ SwitchMmu::Check3DTBmAlgorithm(Ptr<Packet> packet) // PBS-new   //kkkk
              << " gamma: " << gamma
              << endl;
 
-        const double actualSelectedU2 =
-            previousStoreSram ? U2Ss : U2Ds;
+        const double actualSelectedU2 = previousStoreSram ? U2Ss : U2Ds;
 
         const double oldPredictedU2 =
-            previousStoreSram
-                ? -temp_for_record_last_delta_q /
+            previousStoreSram ? -temp_for_record_last_delta_q /
                       std::max(
                           Sr_last[port][priority][qIndex],
                           EPS)
@@ -1509,44 +1464,19 @@ SwitchMmu::Check3DTBmAlgorithm(Ptr<Packet> packet) // PBS-new   //kkkk
 
         cout << "分析---- 时间:"
              << Simulator::Now().GetNanoSeconds()
-             << " "
-             << "决策位置:"
-             << (previousStoreSram ? 1 : 0)
-             << " "
-             << "predical lambda:"
-             << temp_for_record_last_ewma_r
-             << " "
-             << "period:"
-             << temp_for_record_last_T
-             << " "
-             << "predical CS_OUT:"
-             << temp_for_record_last_cs_out
-             << " "
-             << "predical delta_Q_i_s:"
-             << temp_for_record_last_delta_q
-             << " "
-             << "last Sr:"
-             << Sr_last[port][priority][qIndex]
-             << " "
-             << "last Dr:"
-             << Dr_last[port][priority][qIndex]
-             << " "
-             << "real C_i_in:"
-             << Packet_Size_Cycle[port][priority][qIndex]
-             << " "
-             << "real C_i_sout:"
-             << ReadSram_Size_Cycle[port][priority][qIndex]
-             << " "
-             << "U2star:"
-             << actualSelectedU2
-             << " "
-             << "port:"
-             << port
-             << " "
-             << "U2:"
-             << oldPredictedU2
-             << " "
-             << endl;
+             << " "<< "决策位置:"<< (previousStoreSram ? 1 : 0)
+             << " "<< "predical lambda:"<< temp_for_record_last_ewma_r
+             << " " << "period:" << temp_for_record_last_T
+             << " " << "predical CS_OUT:" << temp_for_record_last_cs_out
+             << " "  << "predical delta_Q_i_s:" << temp_for_record_last_delta_q
+             << " "  << "last Sr:" << Sr_last[port][priority][qIndex]
+             << " " << "last Dr:"  << Dr_last[port][priority][qIndex]
+             << " "  << "real C_i_in:" << Packet_Size_Cycle[port][priority][qIndex]
+             << " " << "real C_i_sout:" << ReadSram_Size_Cycle[port][priority][qIndex]
+             << " " << "U2star:" << actualSelectedU2
+             << " " << "port:"  << port
+             << " "  << "U2:" << oldPredictedU2
+             << " "<< endl;
     }
     // 分别预测下一周期选择 SRAM/DRAM 时的结果
 
@@ -1607,22 +1537,9 @@ SwitchMmu::Check3DTBmAlgorithm(Ptr<Packet> packet) // PBS-new   //kkkk
     const double deltaQIfDram = -sramOutIfDram;
     if (print_flag == 1)
     {
-        cout << "T轮从Sram读出实际数据量："
-             << ReadSram_Size_Cycle[port][priority][qIndex]
-             << "B"
-             << endl;
-
-        cout << "预测T+1轮从Sram读出数据量："
-             << (currentStoreSram
-                     ? sramOutIfSram
-                     : sramOutIfDram)
-             << "B"
-             << endl;
-
-        cout << "T+1轮的totalSize:"
-             << serviceBytes
-             << "B"
-             << endl;
+        cout << "T轮从Sram读出实际数 据量："<< ReadSram_Size_Cycle[port][priority][qIndex]<< "B"<< endl;
+        cout << "预测T+1轮从Sram读出数据量："<< (currentStoreSram ? sramOutIfSram : sramOutIfDram) << "B" << endl;
+        cout << "T+1轮的totalSize:" << serviceBytes << "B" << endl;
 
         cout << "PBSStorageState"
              << " port:" << port
@@ -1709,7 +1626,6 @@ SwitchMmu::Check3DTBmAlgorithm(Ptr<Packet> packet) // PBS-new   //kkkk
              << " - "
              << WriteDram_Rate_Cycle[port][priority][qIndex]
              << endl;
-
         cout << "PBSDecision"
              << " mixed:" << isMixed
              << " current:"
@@ -1723,7 +1639,7 @@ SwitchMmu::Check3DTBmAlgorithm(Ptr<Packet> packet) // PBS-new   //kkkk
              << endl;
     }
 
-    //  严格按照最终方向准入当前数据包  不允许方向为 SRAM 时回退到 DRAM，也不允许反向回退。
+    //  按照最终方向准入当前数据包  不允许方向为 SRAM 时回退到 DRAM
     int finalDecision = 2; // 0:DRAM，1:SRAM，2:DROP
     if (nextStoreSram)
     {
@@ -1795,7 +1711,6 @@ SwitchMmu::Check3DTBmAlgorithm(Ptr<Packet> packet) // PBS-new   //kkkk
              << " U_d2: " << U_dram_2
              << " MD: " << MD1
              << endl;
-
         cout << "最终决策结果:0片外 1片内 2丢包：   "
              << bmResult
              << endl;
@@ -1805,27 +1720,15 @@ SwitchMmu::Check3DTBmAlgorithm(Ptr<Packet> packet) // PBS-new   //kkkk
     {
         std::string filename1;
         std::stringstream filepathstream1;
-
-        filepathstream1
-            << baseFilePath
-            + now_algorithm_name
-            + "/"
-            + nextFilePath
-            << "cost_etc_test_port0.csv";
-
+        filepathstream1<< baseFilePath  + now_algorithm_name + "/" + nextFilePath<< "cost_etc_test_port0.csv";
         filename1 = filepathstream1.str();
 
         ofstream fout1(filename1, ios::app);
-        fout1 << simulation_end.GetNanoSeconds()
-              << ","
-              << Simulator::Now().GetNanoSeconds()
-              << ","
-              << U_sram
-              << ","
-              << U_dram
-              << ","
-              << newT
-              << endl;
+        fout1 << simulation_end.GetNanoSeconds() << ","
+              << Simulator::Now().GetNanoSeconds() << ","
+              << U_sram << ","
+              << U_dram << ","
+              << newT << endl;
         fout1.close();
     }
 
@@ -1833,27 +1736,16 @@ SwitchMmu::Check3DTBmAlgorithm(Ptr<Packet> packet) // PBS-new   //kkkk
     {
         std::string filename2;
         std::stringstream filepathstream2;
-
-        filepathstream2
-            << baseFilePath
-            + now_algorithm_name
-            + "/"
-            + nextFilePath
-            << "cost_etc_test_port1.csv";
+        filepathstream2 << baseFilePath + now_algorithm_name  + "/" + nextFilePath << "cost_etc_test_port1.csv";
 
         filename2 = filepathstream2.str();
 
         ofstream fout2(filename2, ios::app);
-        fout2 << simulation_end.GetNanoSeconds()
-              << ","
-              << Simulator::Now().GetNanoSeconds()
-              << ","
-              << U_sram
-              << ","
-              << U_dram
-              << ","
-              << newT
-              << endl;
+        fout2 << simulation_end.GetNanoSeconds()<< ","
+              << Simulator::Now().GetNanoSeconds() << ","
+              << U_sram << ","
+              << U_dram  << ","
+              << newT << endl;
         fout2.close();
     }
 
