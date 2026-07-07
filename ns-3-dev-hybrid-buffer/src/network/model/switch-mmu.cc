@@ -19,6 +19,8 @@
 
 #include "switch-mmu.h"
 #include <filesystem>
+#include <algorithm>
+#include <cmath>
 #include "off-chip-buffer.h"
 
 #include "ns3/boolean.h"
@@ -1017,40 +1019,15 @@ SwitchMmu::CheckDeepHirBmAlgorithm(
         // 打印当前端口队列、SRAM队列、DRAM队列
         cout << "当前端口队列长度: " << qlen << " 剩余SRAM缓存: " << m_onChipBufferRemain << "剩余DRAM缓存: " << dramRemain << endl;
     }
+    
     NS_ASSERT_MSG(priority <= 1, "优先级只有2个");
-    if ((qlen + pktSize) <= m_wredTh[priority] && m_onChipBufferRemain >= pktSize)
-    //&& m_onChipBufferSize - m_onChipBufferRemain + pktSize < DT_Threshold)
-    ////(m_onChipBufferSize-m_onChipBufferRemain)
+    if ((qlen + pktSize) <= m_wredTh[priority] && m_onChipBufferRemain >= pktSize && (qlen + pktSize) <= DT_Threshold)
     {
-        //  if (qlen<=DT_ths)
-        //  {
-        //
-        //  }else{
-        //     bmResult = BmResult(DROP);//否则，直接丢弃数据包
-        // }
-    //     if (print_flag == 1){
-    //     cout << "Time:" << Simulator::Now() << "  packet:" << packet->GetUid() <<" pktSize: "<<packet->GetSize()<< " 端口:" << port
-    //          << " 存入片内" << endl;
-    //     }
-    //     bmResult = BmResult(TO_ONCHIPBUFFER);
-    // }
-    //--sj  添加DT丢包部分
-        if (Pqs + pktSize > DT_Threshold)
-        {
-            if (print_flag == 1)
-            {
-                cout << "Pqs + pktSize:" << Pqs + pktSize << "| DT_Threshold:" << DT_Threshold << "  DT阈值丢包" << endl;
-            }
-            bmResult = BmResult(DROP);
-        }
-        else
-        {
+            bmResult = BmResult(TO_ONCHIPBUFFER);
             if (print_flag == 1){
             cout << "Time:" << Simulator::Now() << "  packet:" << packet->GetUid() <<" pktSize: "<<packet->GetSize()<< " 端口:" << port
                  << " 存入片内" << endl;
             }
-            bmResult = BmResult(TO_ONCHIPBUFFER);
-        }
     }
     else
     {
@@ -1098,521 +1075,757 @@ SwitchMmu::BmResult
 SwitchMmu::Check3DTBmAlgorithm(Ptr<Packet> packet) // PBS-new   //kkkk
 {
     NS_LOG_FUNCTION(this << packet);
-
     uint32_t port = packet->GetMmuUsedPort();         // 端口号
     uint32_t qIndex = packet->GetMmuUsedQueueId();    // 队列号
     uint32_t priority = packet->GetMmuUsedPriority(); // 优先级
-    uint32_t pktSize = packet->GetSize() + IPV4_INPUT_PKTSIZE_CORRECTION;
-    uint64_t qlen = m_qUsed[port][priority][qIndex]; // 当前队列长度  三维数组
-    uint64_t wcacheUsed = m_offChipBuffer->GetWcacheUsed();
-    uint64_t wcacheSize = m_offChipBuffer->GetWcacheSize();
-    uint64_t dramRemain = m_offChipBuffer->GetDramRemain(); // dram 剩余容量
-    uint64_t dramUsed = m_offChipBuffer->GetDramUsed();     // dram 缓存占用量
-    uint64_t dramSize = m_offChipBuffer->GetDramSize();     // dram 总缓存大小
+    uint32_t pktSize = packet->GetSize() + IPV4_INPUT_PKTSIZE_CORRECTION; // 数据包在缓存中实际占用的大小，
+    constexpr double EPS = 1e-12;
+    constexpr double BYTES_PER_MB = 1e6;  //单位转换的时候使用
+    constexpr double AI_NS = 1000.0;      // AI = 1 us = 1000 ns  一开始的数值
+    constexpr double MD_EPSILON = 5.0;    // MD 公式中的 epsilon  （40）公式里用的参数
+    constexpr double T_MAX_NS = 32000.0;  // 最大周期 32 us
 
-    uint64_t DT_Threshold =
-        DT_alpha * m_onChipBufferRemain; // DT阈值=DT_alpha（系数） * 片内缓存大小
+    // Utility 中 U2 的权重
+    // U = U1 + eta × U2  
+    const double utilityEta = std::max(static_cast<double>(eta[port][priority][qIndex]), EPS);
+    // 周期乘性减小使用独立的 eta_MD，不能与 Utility 权重混用。
+    const double mdEta = std::max(static_cast<double>(eta_MD), EPS);
 
-    double U_sram_1, U_sram_2, U_sram, U_dram_1, U_dram_2, U_dram;
-    double U_star = 0;
-    double ewma_r, miu;
-    double new_T;
+    // 根据端口类型取得实际出口带宽，单位 Gbps。
+    double mu = 100.0;
+    // switch (m_portRates[port])
+    // {
+    // case Gbps100:
+    //     mu = 100.0;
+    //     break;
+    // case Gbps400:
+    //     mu = 400.0;
+    //     break;
+    // case Gbps800:
+    //     mu = 800.0;
+    //     break;
+    // default:
+    //     NS_FATAL_ERROR("Unsupported port rate type, port=" << port);
+    // }
+    BmResult bmResult = BmResult(DROP);  //默认一开始丢包
 
-    Flow type = down;
-    BmResult bmResult = BmResult(DROP);
-    PortType portType = m_portRates[port];
+    uint64_t qlen = m_qUsed[port][priority][qIndex];   // 当前队列总占用包括 SRAM 和 DRAM，单位：Byte
+    uint64_t wcacheUsed = m_offChipBuffer->GetWcacheUsed();   // 写缓存使用量和总容量，
+    uint64_t wcacheSize = m_offChipBuffer->GetWcacheSize();   // 总容量，
+    uint64_t dramRemain = m_offChipBuffer->GetDramRemain();   // DRAM 剩余容量
 
-    static uint64_t total_packet_num = 0;
-    total_packet_num++;
+    double Pqs = static_cast<double>(UsedSram_Size_Cycle[port][priority][qIndex]);  // 当前队列位于 SRAM 中的数据量
+    double math_mETC =static_cast<double>(m_Cost_ETC[port][priority][qIndex].GetNanoSeconds());   // 当前配置的 ETC 周期长度，单位：ns
+    double cycleTimeNs =static_cast<double>((Simulator::Now() - simulation_start[port][priority][qIndex]) .GetNanoSeconds());  // 当前 ETC 周期已经经过的实际时间，
 
-    Packet_Size_Cycle[port][priority][qIndex] +=
-        pktSize; // 当前周期的累积数据量 B 记录当前周期来了多少大小的数据包
-    Packet_Num_Cycle[port][priority][qIndex] +=
-        1; // 当前周期的累积包数 记录当前周期来了多少个数据包
+    const double S = static_cast<double>(m_onChipBufferSize);       // SRAM 总容量，B
+    const double D = m_offChipBuffer->GetDramBandwidth();           // DRAM 总带宽，Gbps
+    const double Sr = static_cast<double>(m_onChipBufferRemain);    // SRAM 剩余容量，B
+    const double Dr = std::max(0.0, D - WriteDram_Rate_Total - ReadDram_Rate_Total);    // 当前 DRAM 剩余带宽
 
-    double Pqs =
-        UsedSram_Size_Cycle[port][priority][qIndex]; // 当前队列中在SRAM的数据占用量 Q_i^{S} 单位 B
+    const double dtThresholdBytes = DT_alpha * Sr;  //DT_Threshold = DT_alpha × SRAM剩余容量
 
-    double math_mETC =
-        m_Cost_ETC[port][priority][qIndex].GetNanoSeconds(); // 初始值 100ns； 当前周期的ETC；
+    const bool hasWcacheSpace = wcacheUsed <= wcacheSize && (wcacheSize - wcacheUsed) >= pktSize;  //是否还有写的空间
+    const bool hasDramSpace = dramRemain >= pktSize;   //是否还有Dram的空间
 
-    double cycle_time = (Simulator::Now() - simulation_start[port][priority][qIndex])
-                            .GetNanoSeconds(); // cycle_time当前周期已过去多长时间；
-                                               // simulation_start当前周期的开始时间；
 
-    double S = m_onChipBufferSize; // B Sram总大小
-    double D = m_offChipBuffer->GetDramBandwidth(); // Gbps Dram总带宽
+    auto printPacketAdmissionResult = [&](bool intendedStoreSram)
+    {
+        if (print_flag != 1)
+        {
+            return;
+        }
 
-    double Sr = m_onChipBufferRemain; // Sram 剩余大小
+        if (bmResult == BmResult(DROP) &&
+            intendedStoreSram &&
+            Pqs + static_cast<double>(pktSize) > dtThresholdBytes)
+        {
+            cout << "Pqs + pktSize:" << Pqs + pktSize
+                 << "| DT_Threshold:" << dtThresholdBytes
+                 << "  DT阈值丢包" << endl;
+        }
 
-    double Dr = max(0.0, D - WriteDram_Rate_Total - ReadDram_Rate_Total); // Dram剩余带宽
+        if (bmResult == BmResult(TO_ONCHIPBUFFER))
+        {
+            cout << "Time:" << Simulator::Now()
+                 << "  packet:" << packet->GetUid()
+                 << " pktSize: " << packet->GetSize()
+                 << " 端口:" << port
+                 << " 存入片内" << endl;
+        }
+        else if (bmResult == BmResult(TO_OFFCHIPBUFFER))
+        {
+            cout << "Time:" << Simulator::Now()
+                 << "  packet:" << packet->GetUid()
+                 << " pktSize: " << packet->GetSize()
+                 << " 端口:" << port
+                 << " 存入片外" << endl;
+        }
+        else
+        {
+            if (!hasWcacheSpace)
+            {
+                cout << "Time:" << Simulator::Now()
+                     << "  packet:" << packet->GetUid()
+                     << " 端口:" << port
+                     << " 丢包原因:Dram带宽不足(wcahe不够)"
+                     << endl;
+            }
+            else
+            {
+                cout << "Time:" << Simulator::Now()
+                     << " packet:" << packet->GetUid()
+                     << " 端口:" << port
+                     << " 丢包原因:未知"
+                     << endl;
+            }
+        }
+    };
 
-    if (cycle_time > 2 * math_mETC && math_mETC > min_T)
-    { // 1.处理一个端口多轮流量的情况，新一轮流量到达时要重置一些状态变量
+    // 长时间无流量后，开始新一轮流量,当空闲时间超过 2 × ETC 时，认为上一轮流量结束，,注意：先重置上一轮状态，再统计当前数据包，避免当前数据包被清零操作直接丢失。
 
+    if (math_mETC > 0.0 && cycleTimeNs > 2.0 * math_mETC)
+    {
         Predict_Flag_First[port][priority][qIndex] = 1;
 
         m_Cost_ETC[port][priority][qIndex] = NanoSeconds(min_T);
-        math_mETC = m_Cost_ETC[port][priority][qIndex].GetNanoSeconds();
-
+        math_mETC = static_cast<double>(m_Cost_ETC[port][priority][qIndex].GetNanoSeconds());
+        // 保存新周期起点的资源状态
         Sr_last[port][priority][qIndex] = Sr;
         Dr_last[port][priority][qIndex] = Dr;
-        Pqs_last[port][priority][qIndex] = 0;
+        Pqs_last[port][priority][qIndex] = Pqs;
 
         ReadSram_Size_Cycle[port][priority][qIndex] = 0;
         WriteDram_Size_Cycle[port][priority][qIndex] = 0;
         ReadDram_Size_Cycle[port][priority][qIndex] = 0;
 
+        ReadSram_Rate_Cycle[port][priority][qIndex] = 0.0;
+        WriteDram_Rate_Cycle[port][priority][qIndex] = 0.0;
+        WriteDram_Rate_Cycle_last[port][priority][qIndex] = 0.0;
+        ReadDram_Rate_Cycle[port][priority][qIndex] = 0.0;
+
         Packet_Num_Cycle[port][priority][qIndex] = 0;
         Packet_Size_Cycle[port][priority][qIndex] = 0;
 
-        simulation_start[port][priority][qIndex] = Simulator::Now(); // 下一个周期的开始时间
+        EWMA_R[port][priority][qIndex] = 0.0;
+        utility[port][priority][qIndex] = 0.0;
+        cs_out_array[port][priority][qIndex] = 0.0;
+        delta_Q_array[port][priority][qIndex] = 0.0;
+
+        simulation_start[port][priority][qIndex] = Simulator::Now();
+        cycleTimeNs = 0.0;
+
         T_seq[port][priority][qIndex] = 0;
         drop_real_per_period[port][priority][qIndex] = 0;
-        Ctag.clear();
+
     }
 
-    if (math_mETC > 0 &&
-        Predict_Flag_First[port][priority][qIndex] == 1) // 第一个周期开始时   YRF_Flag_First：
+    //  统计当前 ETC 周期总到达量
+    Packet_Size_Cycle[port][priority][qIndex] += pktSize;
+    Packet_Num_Cycle[port][priority][qIndex] += 1;
+
+    //  第一周期准入
+    if (math_mETC > 0.0 && Predict_Flag_First[port][priority][qIndex] == 1)
     {
-        // m_LastCycleTimeLength=m_CycleTimeLength;
-        bmResult = BmResult(TO_ONCHIPBUFFER);           // 直接存片上
-        YRF_Flag_result[port][priority][qIndex] = true; // true 表示存片上
+        if (Pqs + static_cast<double>(pktSize) <= dtThresholdBytes && m_onChipBufferRemain >= pktSize)
+        {
+            bmResult = BmResult(TO_ONCHIPBUFFER);
+            YRF_Flag_result[port][priority][qIndex] = true;
+            Ctag[packet->GetUid()] = std::make_pair(1, static_cast<size_t>(pktSize));
+        }
+        else if (hasWcacheSpace && hasDramSpace)
+        {
+            bmResult = BmResult(TO_OFFCHIPBUFFER);
+            YRF_Flag_result[port][priority][qIndex] = false;
+            Ctag[packet->GetUid()] = std::make_pair(0, static_cast<size_t>(pktSize));
+        }
+        else
+        {
+            bmResult = BmResult(DROP);
+            Ctag.erase(packet->GetUid());
+        }
 
-        // 加入Ctag
-        Ctag.insert(map<uint64_t, std::pair<int, size_t>>::value_type(
-            packet->GetUid(),
-            std::make_pair(1, packet->GetSize())));
-
-        simulation_start[port][priority][qIndex] = Simulator::Now(); // 记录周期开始时间
-        EWMA_R[port][priority][qIndex] = 0;
+        // 保存第一周期起点状态。
+        simulation_start[port][priority][qIndex] = Simulator::Now();
+        EWMA_R[port][priority][qIndex] = 0.0;
         Sr_last[port][priority][qIndex] = Sr;
         Dr_last[port][priority][qIndex] = Dr;
+        Pqs_last[port][priority][qIndex] = Pqs;
+        WriteDram_Rate_Cycle_last[port][priority][qIndex] = 0.0;
 
-        Predict_Flag_First[port][priority][qIndex] = 2; // 2.标记为第一个周期结束?
-        T_seq[port][priority][qIndex] = 1;              // 标记当前是第一个周期
+        Predict_Flag_First[port][priority][qIndex] = 2;
+        T_seq[port][priority][qIndex] = 0;
+
+        if (print_flag == 1)
+        {
+            cout << "PBSFirstPeriod"
+                 << " time:" << Simulator::Now().GetNanoSeconds()
+                 << " port:" << port
+                 << " priority:" << priority
+                 << " qIndex:" << qIndex
+                 << " direction:"
+                 << (YRF_Flag_result[port][priority][qIndex] ? "SRAM" : "DRAM")
+                 << " result:" << static_cast<int>(bmResult)
+                 << endl;
+        }
+        printPacketAdmissionResult(
+            YRF_Flag_result[port][priority][qIndex]);
+
         return bmResult;
     }
-    else if (math_mETC > cycle_time &&
-             Predict_Flag_First[port][priority][qIndex] != 1) // 每个周期内
+
+    // 当前 ETC 周期尚未结束：严格保持本周期方向
+    // 不允许 SRAM -> DRAM 或 DRAM -> SRAM 的静默 fallback。
+    if (math_mETC > cycleTimeNs && Predict_Flag_First[port][priority][qIndex] != 1)
     {
-        if (YRF_Flag_result[port][priority][qIndex] == true) // 存片内
+        const bool currentStoreSram = YRF_Flag_result[port][priority][qIndex];
+        if (currentStoreSram)
         {
-            if (Pqs + pktSize > DT_Threshold)
+            if (Pqs + static_cast<double>(pktSize) > dtThresholdBytes)
             {
-                // if ((wcacheSize - wcacheUsed) > pktSize && dramRemain > pktSize)
-                // {
-                //     bmResult = BmResult(TO_OFFCHIPBUFFER);
-                //     // 加入Ctag
-                //     Ctag.insert(map<uint64_t, std::pair<int, size_t>>::value_type(
-                //         packet->GetUid(),
-                //         std::make_pair(0, packet->GetSize())));
-                // }
-                // else{
-                     cout << "Pqs + pktSize:" << Pqs + pktSize << "|||||DT_Threshold:" << DT_Threshold
-                     <<  "  DT阈值丢包" << endl;
-                    bmResult = BmResult(DROP);
-                // }
+                bmResult = BmResult(DROP);
             }
             else if (m_onChipBufferRemain >= pktSize)
-            { // 如果SRAM存的下就存SRAM, 存不下就存DRAM，实在不行才丢
+            {
                 bmResult = BmResult(TO_ONCHIPBUFFER);
-                // 加入Ctag
-                Ctag.insert(map<uint64_t, std::pair<int, size_t>>::value_type(
-                    packet->GetUid(),
-                    std::make_pair(1, packet->GetSize())));
-            }
-            else if ((wcacheSize - wcacheUsed) > pktSize && dramRemain > pktSize)
-            {
-                bmResult = BmResult(TO_OFFCHIPBUFFER);
-                // 加入Ctag
-                Ctag.insert(map<uint64_t, std::pair<int, size_t>>::value_type(
-                    packet->GetUid(),
-                    std::make_pair(0, packet->GetSize())));
-            }
-        }
-        else
-        { // 存片外
-            // cout<<"片外"<<endl;
-            if ((wcacheSize - wcacheUsed) > pktSize && dramRemain > pktSize)
-            {
-                bmResult = BmResult(TO_OFFCHIPBUFFER);
-                // 加入Ctag
-                Ctag.insert(map<uint64_t, std::pair<int, size_t>>::value_type(
-                    packet->GetUid(),
-                    std::make_pair(0, packet->GetSize())));
-            }
-        }
-        return bmResult;
-    }
-    else
-    { // 每个周期结束 //周期末更新状态变量
-
-        if (math_mETC - 0 < 1e-9)
-            math_mETC = cycle_time;
-        //****************统计上周期状态****************
-        ReadSram_Rate_Cycle[port][priority][qIndex] = ReadSram_Size_Cycle[port][priority][qIndex] *
-                                                      8.0 /
-                                                      cycle_time; // SRAM平均出速率  B*8/ns=Gbps
-        WriteDram_Rate_Cycle_last[port][priority][qIndex] =
-            WriteDram_Rate_Cycle[port][priority][qIndex]; // (t-1)'th period
-
-        WriteDram_Rate_Cycle[port][priority][qIndex] =
-            WriteDram_Size_Cycle[port][priority][qIndex] * 8.0 /
-            cycle_time; // DRAM平均入速率 (t'th period)
-        ReadDram_Rate_Cycle[port][priority][qIndex] =
-            ReadDram_Size_Cycle[port][priority][qIndex] * 8.0 / cycle_time; // DRAM平均出速率
-
-        double Cqs =
-            ReadSram_Rate_Cycle[port][priority][qIndex]; // SRAM的出队速率 miu_i_S 单位: Gbps
-                                                         // 瞎写，先直接用上个周期的速率
-
-        double temp_for_record_last_ewma_r = EWMA_R[port][priority][qIndex];
-
-        //****************预测到达速率****************
-        if (Predict_Flag_First[port][priority][qIndex] == 2) // 第一个周期的lambda单独计算
-        {
-            EWMA_R[port][priority][qIndex] = // 计算这一周期的流量到达速率
-                EWMA_W * Packet_Size_Cycle[port][priority][qIndex] * 8.0 / math_mETC; // B*8/ns=Gbps
-            Predict_Flag_First[port][priority][qIndex] = 0;
-        }
-        else
-        { // EWMA平滑
-            EWMA_R[port][priority][qIndex] =
-                EWMA_W * EWMA_R[port][priority][qIndex] +
-                (1 - EWMA_W) * Packet_Size_Cycle[port][priority][qIndex] * 8.0 / math_mETC;
-        }
-        ewma_r = EWMA_R[port][priority][qIndex]; // Gbps
-
-        //****************预测出口速率****************
-        miu = Cqs; // 这里为什么不用min(100, Pqs/cycle_time); // 先瞎写一个 min(C, Q_i^S(t)/T(t+1) )
-
-        if (print_flag == 1){
-            cout << "wktest port " << port << " priority " << priority << " qIndex " << qIndex << endl;
-            cout << Simulator::Now().GetNanoSeconds() << " states_in_end_of_period "
-                << T_seq[port][priority][qIndex] << " port: " << port << " lambda: " << ewma_r
-                << "  miu(Gbps): " << Cqs << "  Pqs(MB): " << Pqs * 1e-6 << "  Sr(MB): " << Sr * 1e-6
-                << "  Dr(Gbps): " << Dr << "  S(MB): " << S * 1e-6 << "  D(Gbps): " << D
-                << " cycle_time(ns): " << cycle_time << " math_ETC(ns): " << math_mETC
-                << " ReadSram_Size_Cycle[port][priority][qIndex]: "
-                << ReadSram_Size_Cycle[port][priority][qIndex]
-                << " Packet_Size_Cycle[port][priority][qIndex]: "
-                << Packet_Size_Cycle[port][priority][qIndex]
-                << "  WriteDram_Size_Cycle[port][priority][qIndex] "
-                << WriteDram_Size_Cycle[port][priority][qIndex] << " qlen(MB): "<<qlen*1e-6<<" activePort: "<<m_activeQueNumSwitch<< endl;
-        }
-        
-
-        //****************计算下一周期的ETC****************
-
-        // ****************4.计算上一周期的实际Utility****************
-        double U1 = 0.0, U2 = 0.0, U1Ss = 0.0, U2Ss = 0.0, U1Ds = 0.0, U2Ds = 0.0;
-
-        U1Ss =
-            1 / max(1.0,
-                    (Pqs_last[port][priority][qIndex] + Packet_Size_Cycle[port][priority][qIndex] -
-                     ReadSram_Size_Cycle[port][priority][qIndex] - DT_alpha * Sr) /
-                        1e3 / 1000);
-        // U1Ss =
-        //     1 / max(1.0,
-        //             (Pqs_last[port][priority][qIndex] + Packet_Size_Cycle[port][priority][qIndex] -
-        //              ReadSram_Size_Cycle[port][priority][qIndex] - DT_alpha * Sr) / 1500);
-
-        U2Ss = -1.0 *
-               (Packet_Size_Cycle[port][priority][qIndex] -
-                ReadSram_Size_Cycle[port][priority][qIndex]) /
-               Sr_last[port][priority][qIndex];
-        // U_star = U1 * pow(2, -1.0 * U2);
-
-        U1Ds = 1 / max(1.0,
-                       (Packet_Size_Cycle[port][priority][qIndex] * 8.0 / math_mETC -
-                        (Dr_last[port][priority][qIndex] +
-                         WriteDram_Rate_Cycle_last[port][priority][qIndex])) *
-                           math_mETC / 8.0 / 1e3 / 1000);
-
-        // U1Ds = 1 / max(1.0,
-        //                (Packet_Size_Cycle[port][priority][qIndex] * 8.0 / math_mETC -
-        //                 (Dr_last[port][priority][qIndex] +
-        //                  WriteDram_Rate_Cycle_last[port][priority][qIndex])) *
-        //                    math_mETC / 8.0 / 1500);
-
-        U2Ds =
-            -1.0 * Packet_Size_Cycle[port][priority][qIndex] * 8.0 / math_mETC /
-            (Dr_last[port][priority][qIndex] + WriteDram_Rate_Cycle_last[port][priority][qIndex]);
-        // U_star = U1 * pow(2, -1.0 * U2);
-
-        if (YRF_Flag_result[port][priority][qIndex] == true) // 如果上一周期存片上
-        {
-            U_star = U1Ss * U2Ss;
-            // cout << Simulator::Now().GetNanoSeconds() << " U*: SRAM:  U1*: " << U1Ss
-            //      << "  U2*: " << U2Ss << " U*=U1*U2=: " << U_star << endl;
-            // U_star = U1 / U2;
-        }
-        else // 如果上一周期存片外
-        {
-            U_star = U1Ds * U2Ds;
-            // cout << Simulator::Now().GetNanoSeconds() << " U*: DRAM:  U1*: " << U1Ds
-            //      << "  U2*: " << U2Ds << " U*=U1*U2=: " << U_star << endl;
-            // U_star = U1 / U2;
-        }
-        if (print_flag == 1){
-            cout << " real:  U1S: " << U1Ss << " U2S: " << U2Ss << " U1D: " << U1Ds << " U2D: " << U2Ds
-                << " Real_Drop:" << drop_real_per_period[port][priority][qIndex] << endl;
-        }
-        // 上一周期的预测U
-        double last_utility = utility[port][priority][qIndex];
-
-        // 更新下一周期的T
-
-        double temp_for_record_last_T = m_Cost_ETC[port][priority][qIndex].GetNanoSeconds();
-
-        double AI1;
-
-        //AI1 = Pqs * 8.0 * Dr / (2* (Packet_Size_Cycle[port][priority][qIndex] * 8.0 / math_mETC) *D);//100Gbps是端口带宽//从100*100改成100*D//从100*D改成100*12*D【12是端口数量】//只有6个端口输入，我看看改成6怎么样
-        AI1 = Pqs * 8.0 * Dr / (m_activeQueNumSwitch* (Packet_Size_Cycle[port][priority][qIndex] * 8.0 / math_mETC) *D);//100Gbps是端口带宽//从100*100改成100*D//从100*D改成100*12*D【12是端口数量】//只有6个端口输入，我看看改成6怎么样
-
-        double delta_U = fabs(U_star - last_utility);
-
-        double MD1 =
-            min(1.0,
-                //(Dr + WriteDram_Rate_Cycle_last[port][priority][qIndex]) / (1 + 5 * delta_U) 
-                (Dr) / (1 + eta_MD * delta_U) 
-                 / (Packet_Size_Cycle[port][priority][qIndex] * 8.0 / math_mETC)*( 1+(qlen-Pqs)/S ) );
-
-        double Tmax = S * 4.0 / D * 8.0;
-        m_Cost_ETC[port][priority][qIndex] =
-            NanoSeconds(max(1.0*min_T, min(math_mETC + AI1, Tmax) * MD1));
-        if (math_mETC + AI1 > m_Cost_ETC[port][priority][qIndex].GetNanoSeconds())
-            AI[port][priority][qIndex] = 0;
-
-        new_T = m_Cost_ETC[port][priority][qIndex].GetNanoSeconds();
-
-if (print_flag == 1){
-        cout << Simulator::Now().GetNanoSeconds() << " New_Period T(ns):" << new_T
-             << " S/4/ewma_r(ns): " << S / 4 / ewma_r * 8 << "  U_star[T]: " << U_star
-             << "  U[T]: " << utility[port][priority][qIndex] << " T(t): " << math_mETC
-             << " AI: " << AI1 << " MD: " << MD1 << " Tmax: " << Tmax
-             << " |U-U*|: " << fabs(U_star - last_utility) <<" eta_MD: "<<eta_MD<<" gamma: "<< EWMA_W <<endl;
-}
-        //****************计算 Utility****************
-if (print_flag == 1){
-        cout << "分析---- 时间:" << Simulator::Now().GetNanoSeconds() << " "
-             << "决策位置:" << (YRF_Flag_result[port][priority][qIndex] == true ? 1 : 0) << " "
-             << "predical lambda:" << temp_for_record_last_ewma_r << " "
-             << "period:" << temp_for_record_last_T << " "
-             << "predical CS_OUT:" << cs_out_array[port][priority][qIndex] << " "
-             << "predical delta_Q_i_s:" << delta_Q_array[port][priority][qIndex] << " "
-             << "last Sr:" << Sr_last[port][priority][qIndex] << " "
-             << "last Dr:" << Dr_last[port][priority][qIndex] << " "
-             << "real C_i_in:" << Packet_Size_Cycle[port][priority][qIndex] << " "
-             << "real C_i_sout:" << ReadSram_Size_Cycle[port][priority][qIndex] << " "
-             << "U2star:" << U2 << " "
-             << "port:" << port << " ";
-}
-if (print_flag == 1){
-        if (YRF_Flag_result[port][priority][qIndex])
-        {
-            cout << "U2:"
-                 << -1.0 * (delta_Q_array[port][priority][qIndex] / Sr_last[port][priority][qIndex])
-                 << " ";
-        }
-        else
-        {
-            cout << "U2:" << -1.0 * (temp_for_record_last_ewma_r / Dr_last[port][priority][qIndex])
-                 << " ";
-        }
-        cout << endl;
-}
-
-
-        // QIS变化量 这里化简了一下不然会数据溢出 表达式应该是 new_T *（1e-9） * (100 * 1024 * 1024  * 1024) / 8;
-        double TotalOutSize = new_T * (100 * 1.024 * 1.024 * 1.024) / 8; // 单位B
-
-        double C_S_OUT = 0;
-
-        for (auto& elem : Ctag)
-        {
-            if (elem.second.first == 0)
-            {
-                // 存Dram的包跳过
-                TotalOutSize -= elem.second.second;
-                // cout << "位于Dram的包:" << elem.second.second << "B" << endl;
-                continue;
-            }
-            else if (TotalOutSize >= elem.second.second)
-            {
-                // cout << "位于Sram的包:" << elem.second.second << "B" << endl;
-                TotalOutSize -= elem.second.second;
-                C_S_OUT += elem.second.second;
             }
             else
             {
-                // cout << "Totalsize < 包大小 位于Sram的包:" << elem.second.second << "B" <<
-                // endl;
-                break;
+                bmResult = BmResult(DROP);
             }
-        }
-
-        if (TotalOutSize < (new_T * (100 * 1.024 * 1.024 * 1.024) / 8))
-            C_S_OUT += TotalOutSize *
-                       (C_S_OUT / (new_T * (100 * 1.024 * 1.024 * 1.024) / 8 - TotalOutSize));
-
-if (print_flag == 1){
-        cout << "T轮从Sram读出实际数据量：" << ReadSram_Size_Cycle[port][priority][qIndex] << "B"
-             << endl;
-        cout << "预测T+1轮从Sram读出数据量：" << C_S_OUT << "B" << endl;
-        cout << "T+1轮的totalSize:" << new_T * (100 * 1.024 * 1.024 * 1.024) / 8 << "B" << endl;
-}
-        double delta_Q_i_S = ewma_r * new_T / 8 - C_S_OUT;
-
-        cs_out_array[port][priority][qIndex] = C_S_OUT;
-        delta_Q_array[port][priority][qIndex] = delta_Q_i_S;
-
-        // U_sram_1 = 1 / max(1.0, std::ceil(1.0*(Pqs + delta_Q_i_S - DT_alpha * (Sr - delta_Q_i_S)) / 1500));
-        U_sram_1 = 1 / max(1.0, 1.0*(Pqs + delta_Q_i_S - DT_alpha * (Sr - delta_Q_i_S)) / 1e3 / 1000);
-
-        // if (fabs(U_sram_1 - 1) < 1e-9 && Pqs + pktSize > DT_Threshold)  //modify by wangkai 2025.07.30
-        //     // U_sram_1 = 1 / (1.0 + std::ceil((Pqs + pktSize - DT_Threshold)/1500) );
-        //     U_sram_1 = 1 / (1.0 + std::ceil((Pqs + pktSize - DT_Threshold)/1e3/1000) );
-
-            
-        U_sram_2 = -1.0 * delta_Q_i_S / Sr;
-        // U_sram = U_sram_1 - eta[port][priority][qIndex] * U_sram_2;
-        // U_sram = U_sram_1 * pow(2, -1.0 * U_sram_2);
-        U_sram = U_sram_1 * (U_sram_2);
-        // U_sram = U_sram_1 / U_sram_2;
-
-        // U_dram_1 = max(0.0, (ewma_r - Dr) * new_T / 8.0 /1e6); // Gbps*ns / 8 = B   /1e6=MB
-        // U_dram_2 = (Sr/S + min(1.0, (Dr-ewma_r)/D)) * new_T; // Gbps*ns / 8 = B
-
-
-        U_dram_1 = 1 / max(1.0,
-                           (ewma_r - (Dr + WriteDram_Rate_Cycle[port][priority][qIndex])) * new_T /
-                               8.0 / 1e3 / 1000); // Gbps*ns / 8 = B /1e6=MB
-        // U_dram_1 = 1 / max(1.0,
-        //                    (ewma_r - (Dr + WriteDram_Rate_Cycle[port][priority][qIndex])) * new_T /
-        //                        8.0 / 1500); // Gbps*ns / 8 = B /1e6=MB
-        
-        U_dram_2 =
-            -1.0 * ewma_r / (Dr + WriteDram_Rate_Cycle[port][priority][qIndex]); // Gbps*ns / 8 = B
-
-        drop_DRAM_last[port][priority][qIndex] = max(0.0, (ewma_r - Dr) * new_T / 8.0 / 1e3 / 1000);
-
-        // U_dram = U_dram_1 - eta[port][priority][qIndex] * U_dram_2;
-        // U_dram = U_dram_1 * pow(2, -1.0 * U_dram_2);
-        U_dram = U_dram_1 * (U_dram_2);
-        // U_dram = U_dram_1 / U_dram_2;
-
-        if (U_sram_1 < 1 - 1e-9 && U_dram_1 < 1 - 1e-9)
-        {
-            drop_flag[port][priority][qIndex] = -1;
         }
         else
         {
-            drop_flag[port][priority][qIndex] = 1;
-        }
-if (print_flag == 1){
-        cout << Simulator::Now().GetNanoSeconds() << " StoringDecision: " << " U_sram: " << U_sram
-             << " U_dram: " << U_dram << " U_s1: " << U_sram_1 << " U_s2: " << U_sram_2
-             << " U_d1: " << U_dram_1 << " U_d2: " << U_dram_2
-             << " eta: " << eta[port][priority][qIndex] << " delta_Q_i_S: " << delta_Q_i_S
-             << " ReadDram_Rate_Cycle[port][priority][qIndex]-WriteDram_Rate_Cycle[port][priority]["
-                "qIndex] "
-             << ReadDram_Rate_Cycle[port][priority][qIndex] << " - "
-             << WriteDram_Rate_Cycle[port][priority][qIndex] << endl;
-}
-        //****************判断SRAM和DRAM谁的Utility大****************
-        int storing_decision = 2, final_dicision = 2;
-        /*
-        if (U_sram_1 > U_dram_1) SRAM
-        if (U_sram_1 == U_dram_1)
-            if (U_sram_2 >= U_sram_2) SRAM
-            if (U_sram_2 < U_sram_2) DRAM
-        if (U_sram_1 < U_dram_1) DRAM
-        */
-
-        // if (U_sram > U_dram) // 存SRAM
-        if (U_sram_1 - U_dram_1 > 1e-9 ||
-            (fabs(U_sram_1 - U_dram_1) < 1e-9 && U_sram_2 - U_dram_2 > 1e-9))
-        {
-            utility[port][priority][qIndex] = U_sram;
-            decision[port][priority][qIndex] = 1;
-            YRF_Flag_result[port][priority][qIndex] = true; // 存片内
-            storing_decision = 1;
-            if (Pqs + pktSize > DT_Threshold)
+            if (hasWcacheSpace && hasDramSpace)
+            {
+                bmResult = BmResult(TO_OFFCHIPBUFFER);
+            }
+            else
             {
                 bmResult = BmResult(DROP);
-                final_dicision = 2;
             }
-            else if (m_onChipBufferRemain > pktSize)
-            {
-                bmResult = BmResult(TO_ONCHIPBUFFER);
-                final_dicision = 1;
-            }
-            else if ((wcacheSize - wcacheUsed) > pktSize && dramRemain > pktSize)
-            {
-                bmResult = BmResult(TO_OFFCHIPBUFFER);
-                final_dicision = 0;
-            }
-            // cout << "决策结果:存片内 " << bmResult << endl;
+        }
+        if (bmResult == BmResult(TO_ONCHIPBUFFER))
+        {
+            Ctag[packet->GetUid()] = std::make_pair(1, static_cast<size_t>(pktSize));
+        }
+        else if (bmResult == BmResult(TO_OFFCHIPBUFFER))
+        {
+            Ctag[packet->GetUid()] = std::make_pair(0, static_cast<size_t>(pktSize));
         }
         else
         {
-            utility[port][priority][qIndex] = U_dram;
-            YRF_Flag_result[port][priority][qIndex] = false;
-            storing_decision = 0;
-            decision[port][priority][qIndex] = 0;
-
-            if ((wcacheSize - wcacheUsed) > pktSize && dramRemain > pktSize)
-            {
-                bmResult = BmResult(TO_OFFCHIPBUFFER);
-                final_dicision = 0;
-            }
-            // cout << "决策结果:存片外 " << bmResult << endl;
+            Ctag.erase(packet->GetUid());
         }
-if (print_flag == 1){
-        cout << Simulator::Now().GetNanoSeconds() << " middle_value_for_plot: " << " port: " << port
-             << " CurrentCycle(T'th): " << T_seq[port][priority][qIndex]
-             << " newT[T+1](ns): " << new_T << " newU[T+1]" << " Usram: " << U_sram
-             << " Udram: " << U_dram << " lambda: " << ewma_r << "  miu(Gbps): " << Cqs
-             << "  Sr(MB): " << Sr * 1e-6 << "  Dr(Gbps): " << Dr << "  U_star[T]: " << U_star
-             << "  U[T]: " << last_utility
-             << " Storing_decision(0片外-1片内-2丢包): " << storing_decision << " final_dicision "
-             << final_dicision << " delta_Q: " << ewma_r * new_T << " U_s1: " << U_sram_1
-             << " U_s2: " << U_sram_2 << " U_d1: " << U_dram_1 << " U_d2: " << U_dram_2
-             << " MD: " << MD1 << endl;
-}
-        //**************** 重置状态变量****************
-        Sr_last[port][priority][qIndex] = Sr; // B
-        Dr_last[port][priority][qIndex] = Dr;
-        Pqs_last[port][priority][qIndex] = Pqs;
+        printPacketAdmissionResult(currentStoreSram);
+        return bmResult;
+    }
 
-        ReadSram_Size_Cycle[port][priority][qIndex] = 0; // B
-        WriteDram_Size_Cycle[port][priority][qIndex] = 0;
-        ReadDram_Size_Cycle[port][priority][qIndex] = 0;
+    // 当前 ETC 周期结束
+    const double actualPeriodNs = std::max(cycleTimeNs, EPS);
+    if (math_mETC <= EPS)
+    {
+        math_mETC = actualPeriodNs;
+    }
+    // 保存上一周期真正执行的方向
+    const bool previousStoreSram = YRF_Flag_result[port][priority][qIndex];
 
-        Packet_Num_Cycle[port][priority][qIndex] = 0;
-        Packet_Size_Cycle[port][priority][qIndex] = 0;
+    // 保留并计算周期速率
+    const double previousQueueDramWriteRate = WriteDram_Rate_Cycle[port][priority][qIndex];
+    WriteDram_Rate_Cycle_last[port][priority][qIndex] = previousQueueDramWriteRate;
 
-        simulation_start[port][priority][qIndex] = Simulator::Now(); // 下一个周期的开始时间
-        // cout<<" test "<< T_seq[port][priority][qIndex] <<endl;
-        T_seq[port][priority][qIndex] = T_seq[port][priority][qIndex] + 1;
-        drop_real_per_period[port][priority][qIndex] = 0;
-        // cout<<" test "<< T_seq[port][priority][qIndex] <<endl;
+    ReadSram_Rate_Cycle[port][priority][qIndex] =
+        static_cast<double>(ReadSram_Size_Cycle[port][priority][qIndex]) *
+        8.0 / actualPeriodNs;
+
+    WriteDram_Rate_Cycle[port][priority][qIndex] =
+        static_cast<double>(WriteDram_Size_Cycle[port][priority][qIndex]) *
+        8.0 / actualPeriodNs;
+
+    ReadDram_Rate_Cycle[port][priority][qIndex] =
+        static_cast<double>(ReadDram_Size_Cycle[port][priority][qIndex]) *
+        8.0 / actualPeriodNs;
+
+    // 本周期总到达量和总到达速率
+    const double actualArrivalBytes = static_cast<double>(Packet_Size_Cycle[port][priority][qIndex]);
+    const double actualArrivalRate =  actualArrivalBytes * 8.0 / actualPeriodNs; // Gbps
+    
+    const double Cqs =
+        ReadSram_Rate_Cycle[port][priority][qIndex];
+    const double temp_for_record_last_ewma_r =
+        EWMA_R[port][priority][qIndex];
+    const double temp_for_record_last_T =
+        math_mETC;
+    const double temp_for_record_last_cs_out =
+        cs_out_array[port][priority][qIndex];
+    const double temp_for_record_last_delta_q =
+        delta_Q_array[port][priority][qIndex];
+
+    //  更新输入速率 EWMA
+
+    const double gamma = std::clamp(static_cast<double>(EWMA_W), 0.0, 1.0);
+
+    if (T_seq[port][priority][qIndex] == 0 || EWMA_R[port][priority][qIndex] <= EPS)
+    {
+        EWMA_R[port][priority][qIndex] = actualArrivalRate;
+    }
+    else
+    {
+        EWMA_R[port][priority][qIndex] =  gamma * EWMA_R[port][priority][qIndex] + (1 - gamma) * actualArrivalRate;
+    }
+
+    const double ewmaRate = std::max(0.0, EWMA_R[port][priority][qIndex]);
+
+
+    if (print_flag == 1)
+    {
+        cout << "wktest port " << port << " priority " << priority  << " qIndex " << qIndex << endl;
+
+        cout << Simulator::Now().GetNanoSeconds()
+             << " states_in_end_of_period "
+             << T_seq[port][priority][qIndex]
+             << " port: " << port
+             << " lambda: " << ewmaRate
+             << "  miu(Gbps): " << Cqs   << "  Pqs(MB): " << Pqs * 1e-6
+             << "  Sr(MB): " << Sr * 1e-6
+             << "  Dr(Gbps): " << Dr  << "  S(MB): " << S * 1e-6
+             << "  D(Gbps): " << D
+             << " cycle_time(ns): " << cycleTimeNs
+             << " math_ETC(ns): " << math_mETC
+             << " ReadSram_Size_Cycle[port][priority][qIndex]: " << ReadSram_Size_Cycle[port][priority][qIndex]
+             << " Packet_Size_Cycle[port][priority][qIndex]: " << Packet_Size_Cycle[port][priority][qIndex]
+             << "  WriteDram_Size_Cycle[port][priority][qIndex] "<< WriteDram_Size_Cycle[port][priority][qIndex]
+             << " qlen(MB): " << qlen * 1e-6
+             << " activePort: " << m_activeQueNumSwitch
+             << endl;
+    }
+
+
+    // 计算上一周期实际 Utility U*
+    double U1Ss = 0.0;
+    double U2Ss = 0.0;
+    double U1Ds = 0.0;
+    double U2Ds = 0.0;
+    double U_star = 0.0;
+    const double actualDeltaQiS = Pqs - Pqs_last[port][priority][qIndex];
+
+    const double safeSrLast = std::max(Sr_last[port][priority][qIndex], EPS);
+
+    // Qs(t) + DeltaQ - alpha * (Sr(t) - DeltaQ)
+    const double actualSramPressureBytes =
+        Pqs_last[port][priority][qIndex] +
+        actualDeltaQiS -
+        DT_alpha *
+            (Sr_last[port][priority][qIndex] - actualDeltaQiS);
+
+    U1Ss =1.0 / std::max(1.0, actualSramPressureBytes / BYTES_PER_MB);
+
+    // SRAM 占用增加时 DeltaQ > 0，U2Ss 应为负数。
+    U2Ss = -actualDeltaQiS / safeSrLast;
+    //实际带宽
+    const double actualAvailableDramRate =std::max(Dr_last[port][priority][qIndex] + WriteDram_Rate_Cycle_last[port][priority][qIndex],EPS);
+    //可用带宽
+    const double actualDramExcessBytes = std::max(0.0, actualArrivalRate - actualAvailableDramRate) * actualPeriodNs / 8.0;
+    //实际效用
+    U1Ds =
+        1.0 /
+        std::max(1.0, actualDramExcessBytes / BYTES_PER_MB);
+
+    U2Ds = -actualArrivalRate / actualAvailableDramRate;
+
+    if (previousStoreSram)
+    {
+        U_star = U1Ss + utilityEta * U2Ss;  //拉平一下
+    }
+    else
+    {
+        U_star = U1Ds + utilityEta * U2Ds;
+    }
+
+    NS_ASSERT_MSG(std::isfinite(U_star), "PBS U_star is NaN or Inf");
+    if (print_flag == 1)
+    {
+        cout << " real: "
+             << " U1S: " << U1Ss<< " U2S: " << U2Ss
+             << " U1D: " << U1Ds<< " U2D: " << U2Ds
+             << " Real_Drop:"
+             << drop_real_per_period[port][priority][qIndex]
+             << endl;
+    }
+    // 根据预测误差更新下一周期 T
+    const double lastUtility = utility[port][priority][qIndex];
+
+    const bool hasValidLastPrediction =  T_seq[port][priority][qIndex] > 0;
+
+    const double deltaU = hasValidLastPrediction ? std::fabs(lastUtility - U_star) : 0.0;  //预测的误差大小
+
+    double MD1 = mdEta /std::max(mdEta + MD_EPSILON * deltaU, EPS);  //MD的更新
+    MD1 = std::clamp(MD1, 0.0, 1.0);
+
+    double nextPeriodNs =  std::min((math_mETC + AI_NS) * MD1, T_MAX_NS);  //T(t+1)=min[(T(t)+AI)×MD,Tmax​]
+    nextPeriodNs =  std::max(nextPeriodNs, static_cast<double>(min_T));
+
+    const int64_t roundedPeriodNs =
+        std::max<int64_t>(static_cast<int64_t>(min_T),
+                          static_cast<int64_t>(std::llround(nextPeriodNs)));
+
+    m_Cost_ETC[port][priority][qIndex] =  NanoSeconds(roundedPeriodNs);
+
+    const double newT = static_cast<double>( m_Cost_ETC[port][priority][qIndex].GetNanoSeconds());
+    const double sQuarterDrainTimeNs =
+        ewmaRate > EPS
+            ? (S / 4.0) * 8.0 / ewmaRate
+            : 0.0;
+
+    if (print_flag == 1)
+    {
+        cout << Simulator::Now().GetNanoSeconds()
+             << " New_Period T(ns):" << newT
+             << " S/4/ewma_r(ns): " << sQuarterDrainTimeNs
+             << "  U_star[T]: " << U_star
+             << "  U[T]: " << lastUtility
+             << " T(t): " << math_mETC
+             << " AI: " << AI_NS
+             << " MD: " << MD1
+             << " Tmax: " << T_MAX_NS
+             << " |U-U*|: " << deltaU
+             << " eta_MD: " << mdEta
+             << " gamma: " << gamma
+             << endl;
+
+        const double actualSelectedU2 =
+            previousStoreSram ? U2Ss : U2Ds;
+
+        const double oldPredictedU2 =
+            previousStoreSram
+                ? -temp_for_record_last_delta_q /
+                      std::max(
+                          Sr_last[port][priority][qIndex],
+                          EPS)
+                : -temp_for_record_last_ewma_r /
+                      std::max(
+                          Dr_last[port][priority][qIndex],
+                          EPS);
+
+        cout << "分析---- 时间:"
+             << Simulator::Now().GetNanoSeconds()
+             << " "
+             << "决策位置:"
+             << (previousStoreSram ? 1 : 0)
+             << " "
+             << "predical lambda:"
+             << temp_for_record_last_ewma_r
+             << " "
+             << "period:"
+             << temp_for_record_last_T
+             << " "
+             << "predical CS_OUT:"
+             << temp_for_record_last_cs_out
+             << " "
+             << "predical delta_Q_i_s:"
+             << temp_for_record_last_delta_q
+             << " "
+             << "last Sr:"
+             << Sr_last[port][priority][qIndex]
+             << " "
+             << "last Dr:"
+             << Dr_last[port][priority][qIndex]
+             << " "
+             << "real C_i_in:"
+             << Packet_Size_Cycle[port][priority][qIndex]
+             << " "
+             << "real C_i_sout:"
+             << ReadSram_Size_Cycle[port][priority][qIndex]
+             << " "
+             << "U2star:"
+             << actualSelectedU2
+             << " "
+             << "port:"
+             << port
+             << " "
+             << "U2:"
+             << oldPredictedU2
+             << " "
+             << endl;
+    }
+    // 分别预测下一周期选择 SRAM/DRAM 时的结果
+
+    const double QiS = std::max(0.0, Pqs);
+    const double QiD = std::max(0.0, static_cast<double>(qlen) - QiS);
+
+    NS_ASSERT_MSG(QiS <= static_cast<double>(qlen) + 1e-6,
+                  "PBS counter error: QiS is greater than qlen");
+
+    const bool isMixed = QiS > EPS && QiD > EPS;
+    const bool currentStoreSram = previousStoreSram;
+    const double lambda = ewmaRate;             // Gbps
+    const double incomingBytes = lambda * newT / 8.0;
+    const double serviceBytes = mu * newT / 8.0;
+
+    // 假设下一周期选择 SRAM
+    double sramOutIfSram = 0.0;
+    if (serviceBytes <= QiS)
+    {
+        // 一个周期连原有 SRAM 数据都发不完
+        sramOutIfSram = serviceBytes;
+    }
+    else
+    {
+        // 发送完旧 SRAM 数据需要的时间，单位 ns
+        const double oldSramDrainTimeNs = QiS * 8.0 / mu;
+
+        // 发送完旧 SRAM 数据后的剩余时间
+        const double remainingTimeNs = std::max( 0.0, newT - oldSramDrainTimeNs);
+
+        // 剩余时间内可从 SRAM 发出的新到达数据
+        const double newSramDataOut =std::min(lambda, mu) * remainingTimeNs / 8.0;
+
+        sramOutIfSram =QiS + newSramDataOut;
+    }
+
+    sramOutIfSram = std::clamp(sramOutIfSram,0.0, std::min(serviceBytes, QiS + incomingBytes));
+
+    const double deltaQIfSram =  incomingBytes - sramOutIfSram;
+
+    // 假设下一周期选择 DRAM
+    double sramOutIfDram = 0.0;
+    if (serviceBytes <= QiD)
+    {
+        // 服务能力全部用于 DRAM 数据，SRAM 没有机会输出。
+        sramOutIfDram = 0.0;
+    }
+    else
+    {
+        // 发完 DRAM 数据后，剩余服务能力只能输出原有 SRAM 数据。
+        const double remainingServiceBytes = serviceBytes - QiD;
+        sramOutIfDram = std::min(QiS, remainingServiceBytes);
+    }
+
+    sramOutIfDram =  std::clamp(sramOutIfDram,  0.0,  std::min(QiS, serviceBytes));
+
+    // 选择 DRAM 时没有新数据进入 SRAM，SRAM 只因输出而减少。
+    const double deltaQIfDram = -sramOutIfDram;
+    if (print_flag == 1)
+    {
+        cout << "T轮从Sram读出实际数据量："
+             << ReadSram_Size_Cycle[port][priority][qIndex]
+             << "B"
+             << endl;
+
+        cout << "预测T+1轮从Sram读出数据量："
+             << (currentStoreSram
+                     ? sramOutIfSram
+                     : sramOutIfDram)
+             << "B"
+             << endl;
+
+        cout << "T+1轮的totalSize:"
+             << serviceBytes
+             << "B"
+             << endl;
+
+        cout << "PBSStorageState"
+             << " port:" << port
+             << " priority:" << priority
+             << " qIndex:" << qIndex
+             << " Qi:" << qlen
+             << " QiS:" << QiS
+             << " QiD:" << QiD
+             << " mixed:" << isMixed
+             << " currentStore:"
+             << (currentStoreSram ? "SRAM" : "DRAM")
+             << " lambda:" << lambda
+             << " u:" << mu
+             << " outsIfSram:" << sramOutIfSram
+             << " outsIfDram:" << sramOutIfDram
+             << endl;
+    }
+    // 计算两个候选方向的预测 Utility
+    const double safeSr = std::max(Sr, EPS);
+    const double predictedSramPressureBytes = QiS + deltaQIfSram -   DT_alpha * (Sr - deltaQIfSram);
+
+    const double U_sram_1 =  1.0 / std::max(1.0, predictedSramPressureBytes / BYTES_PER_MB);
+
+    const double U_sram_2 = -deltaQIfSram / safeSr;
+    const double U_sram =  U_sram_1 + utilityEta * U_sram_2;
+
+    const double availableDramRate =  std::max(Dr + WriteDram_Rate_Cycle[port][priority][qIndex],    EPS);
+
+    const double predictedDramExcessBytes = std::max(0.0, lambda - availableDramRate) *    newT / 8.0;
+
+    const double U_dram_1 =  1.0 / std::max(1.0, predictedDramExcessBytes / BYTES_PER_MB);
+
+    const double U_dram_2 = -lambda / availableDramRate;
+    const double U_dram = U_dram_1 + utilityEta * U_dram_2;
+
+    drop_DRAM_last[port][priority][qIndex] =  predictedDramExcessBytes / BYTES_PER_MB;
+
+    drop_flag[port][priority][qIndex] =   (U_sram_1 < 1.0 - 1e-9 && U_dram_1 < 1.0 - 1e-9)    ? -1    : 1;
+
+
+    // 选择下一周期方向
+    const bool candidateStoreSram = U_sram >= U_dram;  //看这个U的比较结果
+
+    // 队列已经混合时，不允许立即改变当前方向。
+    const bool nextStoreSram =  isMixed ? currentStoreSram : candidateStoreSram;
+    if (print_flag == 1)
+    {
+        if (nextStoreSram)
+        {
+            cout << "决策结果:存片内 " << endl;
+        }
+        else
+        {
+            cout << "决策结果:存片外 " << endl;
+        }
+    }
+    // 最终记录值必须对应最终方向，而不是混合约束前的候选方向。
+    const double C_S_OUT = nextStoreSram ? sramOutIfSram : sramOutIfDram;
+
+    const double delta_Q_i_S =  nextStoreSram ? deltaQIfSram : deltaQIfDram;
+
+    utility[port][priority][qIndex] =  nextStoreSram ? U_sram : U_dram;
+
+    cs_out_array[port][priority][qIndex] = C_S_OUT;
+    delta_Q_array[port][priority][qIndex] = delta_Q_i_S;
+    decision[port][priority][qIndex] = nextStoreSram ? 1 : 0;
+    YRF_Flag_result[port][priority][qIndex] = nextStoreSram;
+
+    if (print_flag == 1)
+    {
+        cout << Simulator::Now().GetNanoSeconds()
+             << " StoringDecision: "
+             << " U_sram: " << U_sram
+             << " U_dram: " << U_dram
+             << " U_s1: " << U_sram_1
+             << " U_s2: " << U_sram_2
+             << " U_d1: " << U_dram_1
+             << " U_d2: " << U_dram_2
+             << " eta: " << utilityEta
+             << " delta_Q_i_S: " << delta_Q_i_S
+             << " ReadDram_Rate_Cycle[port][priority][qIndex]-"
+             << "WriteDram_Rate_Cycle[port][priority][qIndex] "
+             << ReadDram_Rate_Cycle[port][priority][qIndex]
+             << " - "
+             << WriteDram_Rate_Cycle[port][priority][qIndex]
+             << endl;
+
+        cout << "PBSDecision"
+             << " mixed:" << isMixed
+             << " current:"
+             << (currentStoreSram ? "SRAM" : "DRAM")
+             << " candidate:"
+             << (candidateStoreSram ? "SRAM" : "DRAM")
+             << " final:"
+             << (nextStoreSram ? "SRAM" : "DRAM")
+             << " outs:" << C_S_OUT
+             << " deltaQiS:" << delta_Q_i_S
+             << endl;
+    }
+
+    //  严格按照最终方向准入当前数据包  不允许方向为 SRAM 时回退到 DRAM，也不允许反向回退。
+    int finalDecision = 2; // 0:DRAM，1:SRAM，2:DROP
+    if (nextStoreSram)
+    {
+        if (Pqs + static_cast<double>(pktSize) > dtThresholdBytes)
+        {
+            bmResult = BmResult(DROP);
+        }
+        else if (m_onChipBufferRemain < pktSize)
+        {
+            bmResult = BmResult(DROP);
+        }
+        else
+        {
+            bmResult = BmResult(TO_ONCHIPBUFFER);
+            finalDecision = 1;
+        }
+    }
+    else
+    {
+        if (hasWcacheSpace && hasDramSpace)
+        {
+            bmResult = BmResult(TO_OFFCHIPBUFFER);
+            finalDecision = 0;
+        }
+        else
+        {
+            bmResult = BmResult(DROP);
+        }
+    }
+
+    if (bmResult == BmResult(TO_ONCHIPBUFFER))
+    {
+        Ctag[packet->GetUid()] =
+            std::make_pair(1, static_cast<size_t>(pktSize));
+    }
+    else if (bmResult == BmResult(TO_OFFCHIPBUFFER))
+    {
+        Ctag[packet->GetUid()] =
+            std::make_pair(0, static_cast<size_t>(pktSize));
+    }
+    else
+    {
+        Ctag.erase(packet->GetUid());
+    }
+    printPacketAdmissionResult(nextStoreSram);
+    if (print_flag == 1)
+    {
+        cout << Simulator::Now().GetNanoSeconds()
+             << " middle_value_for_plot: "
+             << " port: " << port
+             << " CurrentCycle(T'th): "
+             << T_seq[port][priority][qIndex]
+             << " newT[T+1](ns): " << newT
+             << " newU[T+1] Usram: " << U_sram
+             << " Udram: " << U_dram
+             << " lambda: " << lambda
+             << "  miu(Gbps): " << Cqs
+             << "  Sr(MB): " << Sr * 1e-6
+             << "  Dr(Gbps): " << Dr
+             << "  U_star[T]: " << U_star
+             << "  U[T]: " << lastUtility
+             << " Storing_decision(0片外-1片内-2丢包): "
+             << decision[port][priority][qIndex]
+             << " final_dicision " << finalDecision
+             << " delta_Q: " << lambda * newT
+             << " U_s1: " << U_sram_1
+             << " U_s2: " << U_sram_2
+             << " U_d1: " << U_dram_1
+             << " U_d2: " << U_dram_2
+             << " MD: " << MD1
+             << endl;
+
+        cout << "最终决策结果:0片外 1片内 2丢包：   "
+             << bmResult
+             << endl;
     }
 
     if (port == 0)
     {
-        // 同时输出到文件中便于观察数据***********************
         std::string filename1;
-        // 使用字符串流动态构建文件路径
         std::stringstream filepathstream1;
-        filepathstream1 << baseFilePath + now_algorithm_name + "/" + nextFilePath
-                        << "cost_etc_test_port0.csv";
+
+        filepathstream1
+            << baseFilePath
+            + now_algorithm_name
+            + "/"
+            + nextFilePath
+            << "cost_etc_test_port0.csv";
+
         filename1 = filepathstream1.str();
+
         ofstream fout1(filename1, ios::app);
-        fout1 << simulation_end.GetNanoSeconds() << "," << Simulator::Now().GetNanoSeconds() << ","
-              << U_sram << "," << U_dram << "," << new_T << endl;
+        fout1 << simulation_end.GetNanoSeconds()
+              << ","
+              << Simulator::Now().GetNanoSeconds()
+              << ","
+              << U_sram
+              << ","
+              << U_dram
+              << ","
+              << newT
+              << endl;
         fout1.close();
     }
 
@@ -1620,21 +1833,94 @@ if (print_flag == 1){
     {
         std::string filename2;
         std::stringstream filepathstream2;
-        filepathstream2 << baseFilePath + now_algorithm_name + "/" + nextFilePath
-                        << "cost_etc_test_port1.csv";
+
+        filepathstream2
+            << baseFilePath
+            + now_algorithm_name
+            + "/"
+            + nextFilePath
+            << "cost_etc_test_port1.csv";
+
         filename2 = filepathstream2.str();
+
         ofstream fout2(filename2, ios::app);
-        fout2 << simulation_end.GetNanoSeconds() << "," << Simulator::Now().GetNanoSeconds() << ","
-              << U_sram << "," << U_dram << "," << new_T << endl;
+        fout2 << simulation_end.GetNanoSeconds()
+              << ","
+              << Simulator::Now().GetNanoSeconds()
+              << ","
+              << U_sram
+              << ","
+              << U_dram
+              << ","
+              << newT
+              << endl;
         fout2.close();
     }
 
     simulation_end = Simulator::Now();
-if (print_flag == 1){
-    cout << "最终决策结果:0片外 1片内 2丢包：   " << bmResult << endl;
-}
+
+    if (print_flag == 1)
+    {
+        cout << "PBSPeriodEnd"
+             << " time:" << Simulator::Now().GetNanoSeconds()
+             << " port:" << port
+             << " priority:" << priority
+             << " qIndex:" << qIndex
+             << " oldT:" << math_mETC
+             << " actualPeriod:" << actualPeriodNs
+             << " newT:" << newT
+             << " arrivalRate:" << actualArrivalRate
+             << " ewmaRate:" << ewmaRate
+             << " mu:" << mu
+             << " QiS:" << QiS
+             << " QiD:" << QiD
+             << " mixed:" << isMixed
+             << " previousDirection:"
+             << (previousStoreSram ? "SRAM" : "DRAM")
+             << " candidateDirection:"
+             << (candidateStoreSram ? "SRAM" : "DRAM")
+             << " nextDirection:"
+             << (nextStoreSram ? "SRAM" : "DRAM")
+             << " actualDeltaQiS:" << actualDeltaQiS
+             << " sramOutIfSram:" << sramOutIfSram
+             << " sramOutIfDram:" << sramOutIfDram
+             << " deltaQIfSram:" << deltaQIfSram
+             << " deltaQIfDram:" << deltaQIfDram
+             << " U1Ss:" << U1Ss
+             << " U2Ss:" << U2Ss
+             << " U1Ds:" << U1Ds
+             << " U2Ds:" << U2Ds
+             << " Ustar:" << U_star
+             << " lastUtility:" << lastUtility
+             << " deltaU:" << deltaU
+             << " MD:" << MD1
+             << " Usram:" << U_sram
+             << " Udram:" << U_dram
+             << " C_S_OUT:" << C_S_OUT
+             << " delta_Q_i_S:" << delta_Q_i_S
+             << " finalDecision:" << finalDecision
+             << endl;
+    }
+
+    //保存当前周期结束状态，供下一周期计算 U*
+    Sr_last[port][priority][qIndex] = Sr;
+    Dr_last[port][priority][qIndex] = Dr;
+    Pqs_last[port][priority][qIndex] = Pqs;
+
+    ReadSram_Size_Cycle[port][priority][qIndex] = 0;
+    WriteDram_Size_Cycle[port][priority][qIndex] = 0;
+    ReadDram_Size_Cycle[port][priority][qIndex] = 0;
+
+    Packet_Num_Cycle[port][priority][qIndex] = 0;
+    Packet_Size_Cycle[port][priority][qIndex] = 0;
+
+    simulation_start[port][priority][qIndex] = Simulator::Now();
+    T_seq[port][priority][qIndex] += 1;
+    drop_real_per_period[port][priority][qIndex] = 0;
+
     return bmResult;
 }
+
 
 uint64_t
 SwitchMmu::GetDynamicAlphaSramThreshold(

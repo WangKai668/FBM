@@ -313,20 +313,20 @@ StarSimHelper::SetupRouterQueueDisc()
             for (uint32_t cs = 0; cs < 3; cs++)
             {
                 // 创建 RedQueueDisc 并配置 ECN
-                Ptr<RedQueueDisc> redQdisc = m_routerRedQdisFatory.Create<RedQueueDisc>();
-                if (!redQdisc) {
-                    std::cout<<"Failed to create RedQueueDisc!"<< std::endl;
-                }
-                std::cout<<"RedQueueDisc created: " << redQdisc->GetInstanceTypeId()<< std::endl;
+                // Ptr<RedQueueDisc> redQdisc = m_routerRedQdisFatory.Create<RedQueueDisc>();
+                // if (!redQdisc) {
+                //     std::cout<<"Failed to create RedQueueDisc!"<< std::endl;
+                // }
+                // std::cout<<"RedQueueDisc created: " << redQdisc->GetInstanceTypeId()<< std::endl;
 
-                Ptr<QueueDiscClass> leafCls = CreateObject<QueueDiscClass>();
-                leafCls->SetQueueDisc(redQdisc);
-                hpQdisc->AddQueueDiscClass(leafCls);
+                // Ptr<QueueDiscClass> leafCls = CreateObject<QueueDiscClass>();
+                // leafCls->SetQueueDisc(redQdisc);
+                // hpQdisc->AddQueueDiscClass(leafCls);
 
-//                 Ptr<FifoQueueDisc> leafQdisc = m_routerFifoQdiscFactory.Create<FifoQueueDisc>();
-//                     Ptr<QueueDiscClass> leafCls = CreateObject<QueueDiscClass>();
-//                     leafCls->SetQueueDisc(leafQdisc);
-//                     hpQdisc->AddQueueDiscClass(leafCls);
+                Ptr<FifoQueueDisc> leafQdisc = m_routerFifoQdiscFactory.Create<FifoQueueDisc>();
+                    Ptr<QueueDiscClass> leafCls = CreateObject<QueueDiscClass>();
+                    leafCls->SetQueueDisc(leafQdisc);
+                    hpQdisc->AddQueueDiscClass(leafCls);
 
             }
         }
@@ -343,12 +343,19 @@ StarSimHelper::SetupRouterQueueDisc()
             uint32_t quantums[5] = {2, 2, 1, 1, 1};
             for (uint32_t cs = 0; cs < 5; cs++)
             {
-                Ptr<RedQueueDisc> redQdisc = m_routerRedQdisFatory.Create<RedQueueDisc>();
+                // Ptr<RedQueueDisc> redQdisc = m_routerRedQdisFatory.Create<RedQueueDisc>();
 
+                // Ptr<DrrFlow> leafCls = CreateObject<DrrFlow>();
+                // leafCls->SetQuantum(quantums[cs]);
+                // leafCls->SetQueueDisc(redQdisc);
+                // lpQdisc->AddQueueDiscClass(leafCls);
+
+                Ptr<FifoQueueDisc> fifoQdisc = m_routerFifoQdiscFactory.Create<FifoQueueDisc>();
                 Ptr<DrrFlow> leafCls = CreateObject<DrrFlow>();
                 leafCls->SetQuantum(quantums[cs]);
-                leafCls->SetQueueDisc(redQdisc);
+                leafCls->SetQueueDisc(fifoQdisc);
                 lpQdisc->AddQueueDiscClass(leafCls);
+                
             }
         }
     }
