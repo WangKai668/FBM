@@ -248,3 +248,5 @@ tags
 /.ccls-cache/
 /compile_commands.json
 data/
+data-fig/
+
