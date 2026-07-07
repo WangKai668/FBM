@@ -969,15 +969,11 @@ SwitchMmu::CheckBaselineBmAlgorithm(
 
 //  DeepHir算法
 SwitchMmu::BmResult
-SwitchMmu::CheckDeepHirBmAlgorithm(
-    Ptr<Packet>
-        packet) // 该函数用于检查基准缓存管理算法，根据输入的数据包信息和当前交换机状态，确定输入数据包的缓存位置
+SwitchMmu::CheckDeepHirBmAlgorithm(Ptr<Packet> packet) // 该函数用于检查基准缓存管理算法，根据输入的数据包信息和当前交换机状态，确定输入数据包的缓存位置
 {
     NS_LOG_FUNCTION(this << packet);
     static uint64_t total_packet_num = 0;
     total_packet_num++;
-    // cout << "total_packet_num:" << total_packet_num << endl;
-    // 跑的测试脚本8 要更改BMS阈值
     if (if_change_threshold)
     {
         m_wredTh = {static_cast<uint64_t>(Deeohir_threshold * 1024 * 1024),
@@ -1018,66 +1014,26 @@ SwitchMmu::CheckDeepHirBmAlgorithm(
         cout << "当前端口队列长度: " << qlen << " 剩余SRAM缓存: " << m_onChipBufferRemain << "剩余DRAM缓存: " << dramRemain << endl;
     }
     NS_ASSERT_MSG(priority <= 1, "优先级只有2个");
-    if ((qlen + pktSize) <= m_wredTh[priority] && m_onChipBufferRemain >= pktSize)
-    //&& m_onChipBufferSize - m_onChipBufferRemain + pktSize < DT_Threshold)
-    ////(m_onChipBufferSize-m_onChipBufferRemain)
+    if ((qlen + pktSize) <= m_wredTh[priority] && m_onChipBufferRemain >= pktSize && (qlen + pktSize) <= DT_Threshold)
     {
-        //  if (qlen<=DT_ths)
-        //  {
-        //
-        //  }else{
-        //     bmResult = BmResult(DROP);//否则，直接丢弃数据包
-        // }
-    //     if (print_flag == 1){
-    //     cout << "Time:" << Simulator::Now() << "  packet:" << packet->GetUid() <<" pktSize: "<<packet->GetSize()<< " 端口:" << port
-    //          << " 存入片内" << endl;
-    //     }
-    //     bmResult = BmResult(TO_ONCHIPBUFFER);
-    // }
-    //--sj  添加DT丢包部分
-        if (Pqs + pktSize > DT_Threshold)
-        {
-            if (print_flag == 1)
-            {
-                cout << "Pqs + pktSize:" << Pqs + pktSize << "| DT_Threshold:" << DT_Threshold << "  DT阈值丢包" << endl;
-            }
-            bmResult = BmResult(DROP);
-        }
-        else
-        {
-            if (print_flag == 1){
-            cout << "Time:" << Simulator::Now() << "  packet:" << packet->GetUid() <<" pktSize: "<<packet->GetSize()<< " 端口:" << port
-                 << " 存入片内" << endl;
-            }
-            bmResult = BmResult(TO_ONCHIPBUFFER);
-        }
+        bmResult = BmResult(TO_ONCHIPBUFFER);
+        cout << "Time:" << Simulator::Now() << "  packet:" << packet->GetUid() << " 端口:" << port
+            << " 存入片内" << endl;
     }
     else
     {
-        if ((wcacheSize - wcacheUsed) >= pktSize && dramRemain >= pktSize)
-        {
-            if (print_flag == 1){
-            cout << "Time:" << Simulator::Now() << "  packet:" << packet->GetUid() <<" pktSize: "<<packet->GetSize()
-                 << " 端口:" << port << " 存入片外" << endl;
-            }
+        if ((wcacheSize - wcacheUsed) >= pktSize && dramRemain >= pktSize) {
+            cout << "Time:" << Simulator::Now() << "  packet:" << packet->GetUid()<< " 端口:" << port << " 存入片外" << endl;
             bmResult = BmResult(TO_OFFCHIPBUFFER);
         }
     }
     if (bmResult == DROP)
     {
-        if (wcacheSize - wcacheUsed < pktSize)
-        {
-            if (print_flag == 1){
-            cout << "Time:" << Simulator::Now() << "  packet:" << packet->GetUid()
-                 << " 端口:" << port << " 丢包原因:Dram带宽不足(wcahe不够)" << endl;
-            }
+        if (wcacheSize - wcacheUsed < pktSize){
+            cout << "Time:" << Simulator::Now() << "  packet:" << packet->GetUid()<< " 端口:" << port << " 丢包原因:Dram带宽不足(wcahe不够)" << endl;
         }
-        else
-        {
-            if (print_flag == 1){
-            cout << "Time:" << Simulator::Now() << " packet:" << packet->GetUid()
-                 << " 端口:" << port << " 丢包原因:未知" << endl;
-            }
+        else{
+            cout << "Time:" << Simulator::Now() << " packet:" << packet->GetUid() << " 端口:" << port << " 丢包原因:未知" << endl;
         }
     }
 
