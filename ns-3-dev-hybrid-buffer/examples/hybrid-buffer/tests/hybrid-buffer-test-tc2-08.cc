@@ -148,6 +148,22 @@ main(int argc, char* argv[])
 
     std::cout << "是否读取到了" << Deephir_threshold << std::endl;
     cmd.Parse(argc, argv);
+    Config::SetDefault("ns3::SwitchMmu::nextFilePath",
+                    StringValue(""));
+    Config::SetDefault("ns3::SwitchMmu::now_algorithm_name", StringValue(algorithm_name));
+    Config::SetDefault("ns3::SwitchMmu::Deeohir_threshold", DoubleValue(Deephir_threshold));
+    Config::SetDefault("ns3::SwitchMmu::flow_rate", UintegerValue(flow_rate));
+    Config::SetDefault("ns3::SwitchMmu::if_change_threshold", UintegerValue(1));
+    Config::SetDefault("ns3::SwitchMmu::if_test8",
+                    UintegerValue(0));
+    if (!algorithm_name.compare("pbs"))
+    {
+        Config::SetDefault("ns3::SwitchMmu::BMAlgorithm", EnumValue(2)); // pbs
+    }
+    else
+    {
+        Config::SetDefault("ns3::SwitchMmu::BMAlgorithm", EnumValue(5)); // BMS
+    }
 
     uint32_t numSpokes = 4;
     uint32_t numReceivers = 2;
@@ -193,20 +209,6 @@ main(int argc, char* argv[])
     std::cout << "lastTime:" << lastTime << std::endl;
     std::cout << "endTime:" << 0.00011 + lastTime << std::endl;
 
-    Config::SetDefault("ns3::SwitchMmu::nextFilePath", StringValue("tc2-08/"));
-    Config::SetDefault("ns3::SwitchMmu::now_algorithm_name", StringValue(algorithm_name));
-    Config::SetDefault("ns3::SwitchMmu::Deeohir_threshold", DoubleValue(Deephir_threshold));
-    Config::SetDefault("ns3::SwitchMmu::flow_rate", UintegerValue(flow_rate));
-    Config::SetDefault("ns3::SwitchMmu::if_change_threshold", UintegerValue(1));
-    Config::SetDefault("ns3::SwitchMmu::if_test8", UintegerValue(1));
-    if (!algorithm_name.compare("pbs"))
-    {
-        Config::SetDefault("ns3::SwitchMmu::BMAlgorithm", EnumValue(2)); // pbs
-    }
-    else
-    {
-        Config::SetDefault("ns3::SwitchMmu::BMAlgorithm", EnumValue(5)); // BMS
-    }
 
     // Config::SetDefault("ns3::SwitchMmu::now_algorithm_name", StringValue("BMS"));
     // Config::SetDefault("ns3::SwitchMmu::BMAlgorithm", EnumValue(5)); // BMS
