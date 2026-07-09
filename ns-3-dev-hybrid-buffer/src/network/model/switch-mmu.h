@@ -749,11 +749,6 @@ class SwitchMmu : public Object
      */
     void UpdateQueueStatus(uint32_t port, uint32_t priority, uint32_t qIndex, QueueStatus status);
 
-    /**
-     * \brief YRF Buffer Management Algorithm.
-     */
-    BmResult CheckYRFBmAlgorithm(Ptr<Packet> packet);
-
     // void SaveSRAMCost(Ptr<Packet> packet);
 
     void YRF_BMS(double r, double etc);
@@ -916,7 +911,6 @@ class SwitchMmu : public Object
     /// Sram_Qlen
     std::vector<std::vector<std::vector<uint64_t>>> m_sramQlen;
 
-    void CountDramBandwidth();
 
     // Some Global Counters
     TracedValue<uint64_t> m_nPackets; //!< The number of pkts currently in the Buffer
@@ -931,8 +925,6 @@ class SwitchMmu : public Object
     // 当前算法名字
     std::string now_algorithm_name;
 
-    // 定义包指针记录结构
-    std::map<uint64_t, std::pair<int, size_t>> Ctag;
 
     /**
      * params used by BmAlgHw
@@ -954,6 +946,36 @@ class SwitchMmu : public Object
 
     std::vector<PortType> m_portRates; //!< Out rates of ports, default 100Gbps
 
+    double LINK_BW = 100.0; // 出口带宽，100Gbps
+    double RTT = 32 * 1e3; // RTT, 32us
+
+    double DT_alpha = 3;
+
+    double UTILITY_ETA = 0.1; //效用函数参数
+    double MD_EPSILON = 5; // MD参数
+    double AI = 1 * 1e3; // AI因子
+    double EWMA_W;  //lambda平滑因子    
+
+    uint64_t min_T = 1 * 1e3; //最小周期，= AI
+
+    void CountDramBandwidth();
+    double Dram_Bandwidth_Timer = 1000;
+    double WriteDram_Size_Total = 0;
+    double ReadDram_Size_Total = 0;
+    double WriteDram_Rate_Total = 0;
+    double ReadDram_Rate_Total = 0;
+    double Dr_EWMA = 0;
+
+    void CountSramThroughputDiff();
+    double Sram_ThroughputDiff_Timer = 1000;
+    double WriteSram_Size_Total = 0;
+    double ReadSram_Size_Total = 0;
+    double WriteSram_Rate_Total = 0;
+    double ReadSram_Rate_Total = 0;
+    double DiffSram_Rate_Total = 0;
+    double DiffSram_Rate_EWMA = 0;
+
+
     // queue level alpha
     std::vector<std::vector<std::vector<std::vector<double>>>> m_alphaOfQueue;
     std::vector<double> m_alphaOfPriority; //<! priority level alpha
@@ -964,51 +986,33 @@ class SwitchMmu : public Object
     std::vector<std::vector<std::vector<double>>>
         ReadSram_Rate_Cycle; // Csr,指优先级队列从SRAM读取的速率，以下同
     std::vector<std::vector<std::vector<double>>> WriteDram_Rate_Cycle;      // cdw
-    std::vector<std::vector<std::vector<double>>> ReadDram_Rate_Cycle;       // cdr
     std::vector<std::vector<std::vector<double>>> WriteDram_Rate_Cycle_last; // cdw
-    double WriteDram_Size_Total = 0;
-    double ReadDram_Size_Total = 0;
-    double WriteDram_Rate_Total = 0;
-    double ReadDram_Rate_Total = 0;
-    // double Dram_Bandwidth_Remain;
-    double Dram_Bandwidth_Timer = 1000;
-    int print_flag = 1;
-    uint64_t min_T = 100;
+    
 
-    std::vector<std::vector<std::vector<double>>> ReadSram_Size_Cycle;  // Csr*etc
-    std::vector<std::vector<std::vector<double>>> UsedSram_Size_Cycle;  // Csr*etc
-    std::vector<std::vector<std::vector<double>>> WriteDram_Size_Cycle; // cdw*etc
-    std::vector<std::vector<std::vector<double>>> ReadDram_Size_Cycle;  // cdr*etc
+    int print_flag = 1;
+
+    std::vector<std::vector<std::vector<double>>> UsedSram_Size_Cycle;  
+    std::vector<std::vector<std::vector<double>>> ReadSram_Size_Cycle;  
+    std::vector<std::vector<std::vector<double>>> WriteDram_Size_Cycle; 
     std::vector<std::vector<std::vector<Time>>> Timer_Mill;             //
 
     std::vector<std::vector<std::vector<double>>> Packet_Size_Cycle_Max;
     std::vector<std::vector<std::vector<double>>> EWMA_R;        // lamba
-    std::vector<std::vector<std::vector<bool>>> YRF_Flag_result; // =1：存片内； =0 存片外；
-    std::vector<std::vector<std::vector<bool>>> YRF_Flag_result2; // =1：存片内； =0 存片外；
-    std::vector<std::vector<std::vector<int>>>
-        Predict_Flag_First; // 判断第一个周期 1 第一个周期； 2 第一个周期结束； 0非第一个周期
-    std::vector<std::vector<std::vector<double>>> eta;           //
-    std::vector<std::vector<std::vector<double>>> cs_out_array;  //
+    std::vector<std::vector<std::vector<bool>>> storeDecision; // =1：存片内； =0 存片外；
     std::vector<std::vector<std::vector<double>>> delta_Q_array; //
 
-    double eta_base = 1e-5;
     std::vector<std::vector<std::vector<double>>> utility;
     std::vector<std::vector<std::vector<double>>> decision;
     std::vector<std::vector<std::vector<double>>> Sr_last;         // SRAM_Size_Remain  _last cycle
+    std::vector<std::vector<std::vector<double>>> qlen_last;         // SRAM_Size_Remain  _last cycle
     std::vector<std::vector<std::vector<double>>> Dr_last;         // DRAM_BandWidth_Remain  _lat
-    std::vector<std::vector<std::vector<double>>> Pqs_last;        // periodicl buffer strategy Qi_S
-    std::vector<std::vector<std::vector<int>>> T_seq;              // 标记当前是第几个周期
-    std::vector<std::vector<std::vector<int>>> drop_flag;          // 标记当前是第几个周期
-    std::vector<std::vector<std::vector<int>>> drop_DRAM_last;     // 标记当前是第几个周期
-    std::vector<std::vector<std::vector<int>>> drop_DRAM_lastlast; // 标记当前是第几个周期
-    std::vector<std::vector<std::vector<int>>> drop_real_per_period; // 标记当前是第几个周期
+    std::vector<std::vector<std::vector<double>>> Qis_last;        // periodicl buffer strategy Qi_S
+    std::vector<std::vector<std::vector<int>>> T_seq;              //
+    std::vector<std::vector<std::vector<int>>> drop_DRAM_lastlast; //
+    std::vector<std::vector<std::vector<int>>> drop_real_per_period; //
+    std::vector<std::vector<std::vector<int>>> perPktDecisionFlag; // 是否每包决策的标志位，1为每包决策，0为周期决策
+    std::vector<std::vector<std::vector<int>>> perPktDecisionCount; // 每包决策的计数器，每次连续进入每包决策均需要计数用于更新每包决策的持续时长
 
-    uint64_t n1usStoredPackets; // a
-
-    double DT_alpha = 3;
-    uint64_t target_T;
-    std::vector<std::vector<std::vector<double>>> AI; // =1：存片内； =0 存片外；
-    std::vector<std::vector<std::vector<double>>> MD;
 
     // 记录各个包进入和离开发送队列的时间点，以计算其延迟,20240408
     std::queue<Time> m_enqueTime;
@@ -1020,10 +1024,7 @@ class SwitchMmu : public Object
     bool DeepHir_Flag;
 
     bool YRF_Flag_First; //
-    // bool Predict_Flag_First;
-    // bool YRF_Flag_result;
     double W, W1, W2, W3;
-    double EWMA_W;
     double eta_MD;
     double Sq, Dq, Wq;
     double S_th, W_th, D_th;
