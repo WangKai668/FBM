@@ -141,49 +141,102 @@ runTest8()
 
 runTest9()
 {
-  echo "testcase已自动更变为$testcase"
-  #testcase="hybrid-buffer-test-tc2-09"
-  echo "${algorithm}"
+  local case_id="${testcase#hybrid-buffer-test-}"
+  local final_dir
+  local output_file_real
+  local status
+
+  echo "testcase=$testcase"
+  echo "algorithm=$algorithm"
+  echo "TRAFFIC_GEN_DIR=$TRAFFIC_GEN_DIR"
+
+  # 检查流量目录
+  if [[ ! -d "$TRAFFIC_GEN_DIR" ]]; then
+    echo "错误：TrafficGen目录不存在：$TRAFFIC_GEN_DIR"
+    return 1
+  fi
+
+  # 检查两份流量文件
+  if [[ ! -f "$TRAFFIC_GEN_DIR/Generated/traffic_web.txt" ]]; then
+    echo "错误：缺少WebSearch流量文件："
+    echo "$TRAFFIC_GEN_DIR/Generated/traffic_web.txt"
+    return 1
+  fi
+
+  if [[ ! -f "$TRAFFIC_GEN_DIR/Generated/traffic_fbhdp.txt" ]]; then
+    echo "错误：缺少Hadoop流量文件："
+    echo "$TRAFFIC_GEN_DIR/Generated/traffic_fbhdp.txt"
+    return 1
+  fi
 
   echo "Starting testcase $testcase at $(date)"
 
-  if [[ "$algorithm" = "pbs" || "$algorithm" = "both" ]]; then
-    OUTPUT_DIR_real="${OUTPUT_DIR}/pbs"
+  # PBS
+  if [[ "$algorithm" == "pbs" || "$algorithm" == "both" ]]; then
+    final_dir="${OUTPUT_DIR}/pbs/${case_id}"
+    output_file_real="${final_dir}/${testcase}.txt"
+
+    mkdir -p "$final_dir"
+    rm -f "$final_dir"/*.csv
+
     echo "Starting testcase $testcase with pbs at $(date)"
-    final_dir="${OUTPUT_DIR_real}/${testcase:19:6}/"
-    output_file_real="${final_dir}/$testcase.txt"
-    rm -rf $final_dir/*.csv
-    (./ns3 run --cwd=$final_dir "$testcase --Deephir_threshold=1 --algorithm_name=pbs ") > ${output_file_real} &
-    sleep 1
+
+    ./ns3 run --cwd="$final_dir" \
+      "$testcase \
+      --Deephir_threshold=1 \
+      --algorithm_name=pbs \
+      --traffic_gen_dir=$TRAFFIC_GEN_DIR" \
+      > "$output_file_real" 2>&1
+
+    status=$?
+
+    if [[ $status -ne 0 ]]; then
+      echo "ERROR：PBS运行失败，退出码=$status"
+      echo "日志位置：$output_file_real"
+      return $status
+    fi
+
+    echo "Finished pbs at $(date)"
   fi
-  if [[ "$algorithm" = "BMS" || "$algorithm" = "both" ]]; then
-    # 流量速率
-    OUTPUT_DIR_real="${OUTPUT_DIR}/BMS"
-    for Deephir_threshold in 0.2 0.5 1.0 2.0 
+
+  # BMS：依次运行5个阈值
+  if [[ "$algorithm" == "BMS" || "$algorithm" == "both" ]]; then
+    for Deephir_threshold in 0.2 0.5 1.0 2.0 4.0
     do
+      final_dir="${OUTPUT_DIR}/BMS/${case_id}/${Deephir_threshold}M"
+      output_file_real="${final_dir}/${testcase}.txt"
+
+      mkdir -p "$final_dir"
+      rm -f "$final_dir"/*.csv
+
       echo "Starting testcase $testcase with Deephir_threshold=$Deephir_threshold at $(date)"
-      final_dir="${OUTPUT_DIR_real}/${testcase:19:6}/${Deephir_threshold}M/"
-      output_file_real="${final_dir}/$testcase.txt"
-      rm -rf $final_dir/*.csv
-      (./ns3 run --cwd=$final_dir "$testcase --Deephir_threshold=$Deephir_threshold --algorithm_name=BMS ") > ${output_file_real} &
-      sleep 1
-    done
-    for Deephir_threshold in 4.0
-    do
-      echo "Starting testcase $testcase with Deephir_threshold=$Deephir_threshold at $(date)"
-      final_dir="${OUTPUT_DIR_real}/${testcase:19:6}/${Deephir_threshold}M/"
-      output_file_real="${final_dir}/$testcase.txt"
-      rm -rf $final_dir/*.csv
-      (./ns3 run --cwd=$final_dir "$testcase --Deephir_threshold=$Deephir_threshold --algorithm_name=BMS ") > ${output_file_real}
+
+      ./ns3 run --cwd="$final_dir" \
+        "$testcase \
+        --Deephir_threshold=$Deephir_threshold \
+        --algorithm_name=BMS \
+        --traffic_gen_dir=$TRAFFIC_GEN_DIR" \
+        > "$output_file_real" 2>&1
+
+      status=$?
+
+      if [[ $status -ne 0 ]]; then
+        echo "ERROR：BMS运行失败"
+        echo "阈值：$Deephir_threshold"
+        echo "退出码：$status"
+        echo "日志位置：$output_file_real"
+        return $status
+      fi
+
+      echo "Finished threshold=$Deephir_threshold at $(date)"
     done
   fi
-  
-  echo "Finished testcase $testcase  at $(date)"
-  
-  cd "$PLOT_DIR" || exit 1
-  echo "---正在画" $testcase
-  python TruePlot.py
-  echo "---"$testcase "画完了" 
+
+  echo "Finished testcase $testcase at $(date)"
+
+  # 暂时先不自动画图，确保仿真数据完整生成
+  # cd "$PLOT_DIR" || return 1
+  # python3 TruePlot.py "$case_id"
 }
 
 run()
@@ -437,7 +490,7 @@ run_and_draw_all(){
         echo "---"$testcase "画完了" 
       testcase="tc2-09"
         echo "---正在画" $testcase
-          python TruePlot.py
+          python3 TruePlot.py
         echo "---"$testcase "画完了" 
   echo "*图画完了"
 }
@@ -470,7 +523,7 @@ draw_all(){
         echo "---"$testcase "画完了" 
       testcase="tc2-09"
         echo "---正在画" $testcase
-          python TruePlot.py
+          python3 TruePlot.py
         echo "---"$testcase "画完了" 
   echo "*图画完了"
   echo "###############################################################################################"

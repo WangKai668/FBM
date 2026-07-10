@@ -131,14 +131,14 @@ def process_flow_data(input_file):
     print(f"处理完成，{data_type}结果已保存到 {output_file}")
 
 
-case_name = "tc2-04"
+case_name = "tc2-05"
 
 input_files = [
 os.path.join(
         DATA_DIR,
         "BMS",
         case_name,
-        "2.0M",
+       # "2.0M",
         f"flow-analysis-{case_name}.txt"
     ),
     os.path.join(

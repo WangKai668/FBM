@@ -125,7 +125,7 @@ StarSimHelper::CreateTopology()
     PointToPointReorderHelper sendP2pHelper;
     sendP2pHelper.SetDeviceAttribute("DataRate", DataRateValue(m_sendLinkCapacity));
     sendP2pHelper.SetChannelAttribute("Delay", TimeValue(m_sendLinkDelay));
-    sendP2pHelper.SetQueueA("ns3::DropTailQueue", "MaxSize", QueueSizeValue(QueueSize("2p"))); //QueueSizeValue(m_reorderQueueSize));
+    sendP2pHelper.SetQueueA("ns3::DropTailQueue", "MaxSize", QueueSizeValue(QueueSize("2p"))); //QueueSizeValue(m_reorderQueueSize));   //QueueSize("2p")
     sendP2pHelper.SetQueueB("ns3::DropTailQueue", "MaxSize", QueueSizeValue(QueueSize("2p")));
 
     PointToPointReorderHelper recvP2pHelper;
@@ -312,21 +312,23 @@ StarSimHelper::SetupRouterQueueDisc()
             // 子队列：3 个 RedQueueDisc（替换原有的 FifoQueueDisc）
             for (uint32_t cs = 0; cs < 3; cs++)
             {
+                // 创建TCP
                 // 创建 RedQueueDisc 并配置 ECN
-                // Ptr<RedQueueDisc> redQdisc = m_routerRedQdisFatory.Create<RedQueueDisc>();
-                // if (!redQdisc) {
-                //     std::cout<<"Failed to create RedQueueDisc!"<< std::endl;
-                // }
-                // // std::cout<<"RedQueueDisc created: " << redQdisc->GetInstanceTypeId()<< std::endl;
+                Ptr<RedQueueDisc> redQdisc = m_routerRedQdisFatory.Create<RedQueueDisc>();
+                if (!redQdisc) {
+                    std::cout<<"Failed to create RedQueueDisc!"<< std::endl;
+                }
+                // std::cout<<"RedQueueDisc created: " << redQdisc->GetInstanceTypeId()<< std::endl;
 
-                // Ptr<QueueDiscClass> leafCls = CreateObject<QueueDiscClass>();
-                // leafCls->SetQueueDisc(redQdisc);
-                // hpQdisc->AddQueueDiscClass(leafCls);
+                Ptr<QueueDiscClass> leafCls = CreateObject<QueueDiscClass>();
+                leafCls->SetQueueDisc(redQdisc);
+                hpQdisc->AddQueueDiscClass(leafCls);
 
-                Ptr<FifoQueueDisc> leafQdisc = m_routerFifoQdiscFactory.Create<FifoQueueDisc>();
-                    Ptr<QueueDiscClass> leafCls = CreateObject<QueueDiscClass>();
-                    leafCls->SetQueueDisc(leafQdisc);
-                    hpQdisc->AddQueueDiscClass(leafCls);
+                //创建UDP
+                // Ptr<FifoQueueDisc> leafQdisc = m_routerFifoQdiscFactory.Create<FifoQueueDisc>();
+                //     Ptr<QueueDiscClass> leafCls = CreateObject<QueueDiscClass>();
+                //     leafCls->SetQueueDisc(leafQdisc);
+                //     hpQdisc->AddQueueDiscClass(leafCls);
 
             }
         }
@@ -343,17 +345,19 @@ StarSimHelper::SetupRouterQueueDisc()
             uint32_t quantums[5] = {2, 2, 1, 1, 1};
             for (uint32_t cs = 0; cs < 5; cs++)
             {
-                // Ptr<RedQueueDisc> redQdisc = m_routerRedQdisFatory.Create<RedQueueDisc>();
+                //创建TCP
+                Ptr<RedQueueDisc> redQdisc = m_routerRedQdisFatory.Create<RedQueueDisc>();
 
-                // Ptr<DrrFlow> leafCls = CreateObject<DrrFlow>();
-                // leafCls->SetQuantum(quantums[cs]);
-                // leafCls->SetQueueDisc(redQdisc);
-                // lpQdisc->AddQueueDiscClass(leafCls);
-                Ptr<FifoQueueDisc> fifoQdisc = m_routerFifoQdiscFactory.Create<FifoQueueDisc>();
                 Ptr<DrrFlow> leafCls = CreateObject<DrrFlow>();
                 leafCls->SetQuantum(quantums[cs]);
-                leafCls->SetQueueDisc(fifoQdisc);
+                leafCls->SetQueueDisc(redQdisc);
                 lpQdisc->AddQueueDiscClass(leafCls);
+                //创建UDP
+                // Ptr<FifoQueueDisc> fifoQdisc = m_routerFifoQdiscFactory.Create<FifoQueueDisc>();
+                // Ptr<DrrFlow> leafCls = CreateObject<DrrFlow>();
+                // leafCls->SetQuantum(quantums[cs]);
+                // leafCls->SetQueueDisc(fifoQdisc);
+                // lpQdisc->AddQueueDiscClass(leafCls);
                 
             }
         }

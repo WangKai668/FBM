@@ -182,8 +182,8 @@ main(int argc, char* argv[])
     std::string algorithm_name = "BMS";
     std::string trafficGenDir;
     // 1：WebSearch；0：Hadoop
-    int isWeb = 1;
-    int isIncast = 0;
+    int isWeb = 0;
+    int isIncast = 1;
     cmd.AddValue("Deephir_threshold","DeepHIR阈值",
                  Deephir_threshold);
     cmd.AddValue("if_change_threshold","是否改变DT阈值",
