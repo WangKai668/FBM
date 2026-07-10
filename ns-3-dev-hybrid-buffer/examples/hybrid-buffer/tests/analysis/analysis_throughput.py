@@ -1,445 +1,265 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+
 """
-Plot host transmit throughput and switch-port throughput for the FBM/ns-3 project.
+画出所有交换机端口(port)和所有主机(host)的吞吐量到同一张图。
 
-Supported input sources
------------------------
-1. Native FBM switch-port CSV files:
-   port-throughput-<simName>-p<port>.csv
-   Header: start,end,sendRate
-   sendRate is interpreted as bit/s.
+输入文件格式：
+- port-throughput-test-tc2-05-p0.csv
+- host-throughput-test-tc2-05-n2.csv
 
-2. Optional host-throughput CSV files:
-   host-throughput-*.csv
-   Common columns such as start,end,sendRate or time,throughput are supported.
-
-3. A text log such as filtered_output.txt. The parser accepts lines containing:
-   - "Switch Port <id> ... Throughput: <value> Gbps"
-   - "Host Node <id> ... Throughput: <value> Gbps"
-   The field order may vary, provided that the line also contains a time value.
-
-Examples
---------
-python3 analysis_throughput.py filtered_output.txt
-python3 analysis_throughput.py filtered_output.txt --data-dir ../data/BMS/tc2-05
-python3 analysis_throughput.py --data-dir ../data/pbs/tc2-05 --no-show
+使用示例：
+python3 analysis_throughput.py   /home/sj/FBM1/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data/pbs/tc2-05   --sim-name test-tc2-05   --start-ms 0   --end-ms 26   -o all_ports_throughput.png
 """
 
 from __future__ import annotations
 
 import argparse
 import csv
-import math
 import re
 import sys
-from collections import defaultdict
 from pathlib import Path
-from typing import DefaultDict, Dict, Iterable, List, Optional, Sequence, Tuple
 
-Point = Tuple[float, float]  # time in seconds, throughput in Gbps
-Series = DefaultDict[str, List[Point]]
-
-NUMBER = r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?"
-
-TIME_PATTERNS = (
-    re.compile(
-        rf"(?:Time(?:\s+since\s+start)?|Timestamp|time|timestamp|\bt)\s*[:=]\s*"
-        rf"(?P<value>{NUMBER})\s*(?P<unit>ns|us|µs|ms|s)?",
-        re.IGNORECASE,
-    ),
-    re.compile(
-        rf"(?:Throughput|Rate)\s*-\s*(?P<value>{NUMBER})\s*"
-        rf"(?P<unit>ns|us|µs|ms|s)?",
-        re.IGNORECASE,
-    ),
-    re.compile(
-        rf"^\s*(?P<value>{NUMBER})\s*(?P<unit>ns|us|µs|ms|s)\b",
-        re.IGNORECASE,
-    ),
-)
-
-OBJECT_PATTERN = re.compile(
-    r"(?P<kind>Switch[\s_-]*Port|Host[\s_-]*Node)"
-    r"(?:\s*(?:ID|id))?\s*[:=#-]?\s*"
-    r"(?P<id>0x[0-9a-fA-F]+|\d+)?",
-    re.IGNORECASE,
-)
-
-RATE_PATTERNS = (
-    re.compile(
-        rf"(?:Throughput|sendRate|tx[_\s-]*bw|Rate)\s*[:=]\s*"
-        rf"(?P<value>{NUMBER})\s*(?P<unit>Tbps|Gbps|Mbps|Kbps|bps)\b",
-        re.IGNORECASE,
-    ),
-    re.compile(
-        rf"(?P<value>{NUMBER})\s*(?P<unit>Tbps|Gbps|Mbps|Kbps|bps)\b",
-        re.IGNORECASE,
-    ),
-)
-
-RAW_RATE_PATTERN = re.compile(
-    rf"(?:Throughput|sendRate|tx[_\s-]*bw|Rate)\s*[:=]\s*"
-    rf"(?P<value>{NUMBER})(?!\s*(?:Tbps|Gbps|Mbps|Kbps|bps)\b)",
-    re.IGNORECASE,
-)
-
-PORT_FILE_RE = re.compile(r"-p(?P<port>\d+)\.csv$", re.IGNORECASE)
-HOST_FILE_RE = re.compile(
-    r"(?:host|node)[-_]?(?P<host>0x[0-9a-fA-F]+|\d+)?", re.IGNORECASE
-)
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 
 
-def time_to_seconds(value: float, unit: Optional[str]) -> float:
-    unit = (unit or "s").lower()
-    factors = {
-        "s": 1.0,
-        "ms": 1e-3,
-        "us": 1e-6,
-        "µs": 1e-6,
-        "ns": 1e-9,
-    }
-    return value * factors[unit]
+PORT_RE = re.compile(r"-p(\d+)\.csv$")
+HOST_RE = re.compile(r"-n(\d+)\.csv$")
 
 
-def rate_to_gbps(value: float, unit: str) -> float:
-    factors = {
-        "tbps": 1e3,
-        "gbps": 1.0,
-        "mbps": 1e-3,
-        "kbps": 1e-6,
-        "bps": 1e-9,
-    }
-    return value * factors[unit.lower()]
+def read_throughput_csv(path: Path) -> tuple[list[float], list[float]]:
+    times_ms: list[float] = []
+    rates_gbps: list[float] = []
 
-
-def extract_time_seconds(line: str) -> Optional[float]:
-    for pattern in TIME_PATTERNS:
-        match = pattern.search(line)
-        if match:
-            return time_to_seconds(float(match.group("value")), match.group("unit"))
-
-    # FBM TCP log style: "... State - 1.23e-04 ..."
-    match = re.search(rf"\b(?:State|Stats?|Sample)\s*-\s*(?P<value>{NUMBER})\b", line)
-    if match:
-        return float(match.group("value"))
-    return None
-
-
-def extract_rate_gbps(line: str) -> Optional[float]:
-    for pattern in RATE_PATTERNS:
-        match = pattern.search(line)
-        if match:
-            return rate_to_gbps(float(match.group("value")), match.group("unit"))
-
-    # Unit-less custom logs are interpreted heuristically:
-    # large values are bit/s; small values are already Gbit/s.
-    match = RAW_RATE_PATTERN.search(line)
-    if match:
-        value = float(match.group("value"))
-        return value / 1e9 if abs(value) >= 1e6 else value
-    return None
-
-
-def canonical_label(kind: str, object_id: Optional[str]) -> str:
-    normalized = re.sub(r"[\s_-]+", " ", kind).strip().lower()
-    prefix = "Switch Port" if normalized.startswith("switch") else "Host Node"
-    return f"{prefix} {object_id or 'unknown'}"
-
-
-def parse_text_log(path: Path, debug: bool = False) -> Series:
-    series: Series = defaultdict(list)
-    unmatched: List[str] = []
-
-    with path.open("r", encoding="utf-8", errors="replace") as handle:
-        for line in handle:
-            object_match = OBJECT_PATTERN.search(line)
-            if not object_match:
-                continue
-
-            time_s = extract_time_seconds(line)
-            rate_gbps = extract_rate_gbps(line)
-            if time_s is None or rate_gbps is None:
-                if debug and len(unmatched) < 20:
-                    unmatched.append(line.rstrip())
-                continue
-
-            label = canonical_label(
-                object_match.group("kind"), object_match.group("id")
-            )
-            series[label].append((time_s, rate_gbps))
-
-    if debug and unmatched:
-        print("\n以下吞吐量日志包含对象关键词，但未能解析时间或速率：", file=sys.stderr)
-        for line in unmatched:
-            print(f"  {line}", file=sys.stderr)
-
-    return series
-
-
-def first_present(row: Dict[str, str], names: Sequence[str]) -> Optional[str]:
-    lowered = {key.strip().lower(): value for key, value in row.items() if key}
-    for name in names:
-        value = lowered.get(name.lower())
-        if value not in (None, ""):
-            return value
-    return None
-
-
-def parse_native_throughput_csv(path: Path, label: str) -> List[Point]:
-    points: List[Point] = []
-    with path.open("r", encoding="utf-8", errors="replace", newline="") as handle:
+    with path.open("r", newline="", encoding="utf-8-sig") as handle:
         reader = csv.DictReader(handle)
+
         if not reader.fieldnames:
-            return points
+            raise ValueError(f"empty CSV: {path}")
 
-        for row in reader:
-            try:
-                start_raw = first_present(row, ("start", "begin", "time_start"))
-                end_raw = first_present(row, ("end", "stop", "time_end"))
-                time_raw = first_present(row, ("time", "timestamp", "t"))
-                rate_raw = first_present(
-                    row,
-                    (
-                        "sendRate",
-                        "throughput",
-                        "throughput_bps",
-                        "throughput_gbps",
-                        "rate",
-                        "rate_gbps",
-                        "sendrate_gbps",
-                        "tx_bw",
-                    ),
-                )
-
-                if rate_raw is None:
-                    continue
-
-                if start_raw is not None and end_raw is not None:
-                    time_s = (float(start_raw) + float(end_raw)) / 2.0
-                elif time_raw is not None:
-                    time_s = float(time_raw)
-                else:
-                    continue
-
-                rate_value = float(rate_raw)
-
-                # Native FBM CSV uses bit/s. Explicit Gbps columns are also supported.
-                field_map = {key.strip().lower(): key for key in row if key}
-                if any(
-                    name in field_map
-                    for name in ("throughput_gbps", "rate_gbps", "sendrate_gbps")
-                ):
-                    rate_gbps = rate_value
-                else:
-                    rate_gbps = rate_value / 1e9
-
-                if math.isfinite(time_s) and math.isfinite(rate_gbps):
-                    points.append((time_s, rate_gbps))
-            except (TypeError, ValueError):
-                continue
-    return points
-
-
-def load_csv_series(data_dir: Path) -> Series:
-    series: Series = defaultdict(list)
-
-    for path in sorted(data_dir.glob("port-throughput-*.csv")):
-        match = PORT_FILE_RE.search(path.name)
-        port_id = match.group("port") if match else path.stem
-        label = f"Switch Port p{port_id}"
-        series[label].extend(parse_native_throughput_csv(path, label))
-
-    for pattern in ("host-throughput-*.csv", "node-throughput-*.csv"):
-        for path in sorted(data_dir.glob(pattern)):
-            match = HOST_FILE_RE.search(path.stem)
-            host_id = match.group("host") if match and match.group("host") else path.stem
-            label = f"Host Node {host_id}"
-            series[label].extend(parse_native_throughput_csv(path, label))
-
-    return series
-
-
-def merge_series(target: Series, source: Series) -> None:
-    for label, points in source.items():
-        target[label].extend(points)
-
-
-def deduplicate_and_sort(points: Iterable[Point]) -> List[Point]:
-    # Keep the latest value if the same series has duplicate samples at one timestamp.
-    by_time: Dict[float, float] = {}
-    for time_s, value in points:
-        by_time[time_s] = value
-    return sorted(by_time.items())
-
-
-def clip_points(
-    points: Sequence[Point],
-    origin_s: float,
-    start_ms: Optional[float],
-    end_ms: Optional[float],
-) -> List[Tuple[float, float]]:
-    clipped: List[Tuple[float, float]] = []
-    for time_s, value in points:
-        time_ms = (time_s - origin_s) * 1000.0
-        if start_ms is not None and time_ms < start_ms:
-            continue
-        if end_ms is not None and time_ms > end_ms:
-            continue
-        clipped.append((time_ms, value))
-    return clipped
-
-
-def plot_series(
-    series: Series,
-    output: Path,
-    show: bool,
-    start_ms: Optional[float],
-    end_ms: Optional[float],
-    title: str,
-) -> None:
-    import matplotlib.pyplot as plt
-
-    cleaned = {
-        label: deduplicate_and_sort(points)
-        for label, points in series.items()
-        if points
-    }
-    if not cleaned:
-        raise RuntimeError(
-            "未解析到吞吐量数据。请检查输入日志格式，或确认目录中存在 "
-            "port-throughput-*.csv。可加 --debug 查看未匹配日志。"
+        rate_column = next(
+            (
+                name
+                for name in ("sendRate", "receiveRate", "recvRate", "rate", "throughput")
+                if name in reader.fieldnames
+            ),
+            None,
         )
 
-    origin_s = min(points[0][0] for points in cleaned.values())
+        if rate_column is None or "start" not in reader.fieldnames or "end" not in reader.fieldnames:
+            raise ValueError(
+                f"{path} must contain start,end and one of "
+                f"sendRate/receiveRate/recvRate/rate/throughput"
+            )
 
-    fig, ax = plt.subplots(figsize=(14, 7))
-    plotted = 0
+        for row_number, row in enumerate(reader, start=2):
+            try:
+                start_s = float(row["start"])
+                end_s = float(row["end"])
+                rate_bps = float(row[rate_column])
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"invalid numeric value at {path}:{row_number}") from exc
 
-    def order_key(item: Tuple[str, List[Point]]) -> Tuple[int, str]:
-        return (0 if item[0].startswith("Switch Port") else 1, item[0])
+            times_ms.append((start_s + end_s) * 500.0)
+            rates_gbps.append(rate_bps / 1e9)
 
-    for label, points in sorted(cleaned.items(), key=order_key):
-        clipped = clip_points(points, origin_s, start_ms, end_ms)
-        if not clipped:
+    if not times_ms:
+        raise ValueError(f"no throughput samples in {path}")
+
+    return times_ms, rates_gbps
+
+
+def moving_average(values: list[float], window: int) -> list[float]:
+    if window <= 1 or len(values) <= 1:
+        return values
+
+    window = min(window, len(values))
+    result: list[float] = []
+    running_sum = 0.0
+    history: list[float] = []
+
+    for value in values:
+        history.append(value)
+        running_sum += value
+
+        if len(history) > window:
+            running_sum -= history[-window - 1]
+
+        result.append(running_sum / min(len(history), window))
+
+    return result
+
+
+def extract_port(path: Path) -> int:
+    match = PORT_RE.search(path.name)
+    if not match:
+        raise ValueError(f"cannot extract port number from {path.name}")
+    return int(match.group(1))
+
+
+def extract_host(path: Path) -> int:
+    match = HOST_RE.search(path.name)
+    if not match:
+        raise ValueError(f"cannot extract host number from {path.name}")
+    return int(match.group(1))
+
+
+def discover_files(data_dir: Path, sim_name: str) -> tuple[list[tuple[int, Path]], list[tuple[int, Path]]]:
+    port_files = sorted(data_dir.glob(f"port-throughput-{sim_name}-p*.csv"))
+    host_files = sorted(data_dir.glob(f"host-throughput-{sim_name}-n*.csv"))
+
+    if not port_files:
+        raise FileNotFoundError(f"no port files found in {data_dir} for sim-name={sim_name}")
+    if not host_files:
+        raise FileNotFoundError(f"no host files found in {data_dir} for sim-name={sim_name}")
+
+    ports = sorted((extract_port(path), path) for path in port_files)
+    hosts = sorted((extract_host(path), path) for path in host_files)
+
+    return ports, hosts
+
+
+def parse_filter(text: str | None) -> set[int] | None:
+    if not text:
+        return None
+
+    result: set[int] = set()
+
+    for item in text.split(","):
+        item = item.strip()
+        if not item:
             continue
 
-        times_ms = [point[0] for point in clipped]
-        rates_gbps = [point[1] for point in clipped]
-
-        if label.startswith("Switch Port"):
-            ax.plot(
-                times_ms,
-                rates_gbps,
-                linewidth=1.6,
-                marker="o",
-                markersize=2.5,
-                markevery=max(1, len(times_ms) // 80),
-                label=f"{label} Throughput (Gbps)",
-            )
+        if "-" in item:
+            left, right = item.split("-", 1)
+            start = int(left)
+            end = int(right)
+            if start > end:
+                start, end = end, start
+            result.update(range(start, end + 1))
         else:
-            ax.plot(
-                times_ms,
-                rates_gbps,
-                linewidth=1.2,
-                linestyle="--",
-                label=f"{label} Throughput (Gbps)",
-            )
-        plotted += 1
+            result.add(int(item))
 
-    if plotted == 0:
-        raise RuntimeError("时间范围内没有可绘制的吞吐量数据。")
+    return result
 
-    ax.set_xlabel("Time since start (ms)")
+
+def plot_all(
+    ports: list[tuple[int, Path]],
+    hosts: list[tuple[int, Path]],
+    output: Path,
+    smooth_window: int,
+    start_ms: float | None,
+    end_ms: float | None,
+    title: str,
+    legend_columns: int,
+    show: bool,
+) -> None:
+    fig, ax = plt.subplots(figsize=(14, 8))
+
+    # 交换机端口：实线
+    for port, path in ports:
+        t, y = read_throughput_csv(path)
+        y = moving_average(y, smooth_window)
+        ax.plot(t, y, linewidth=1.2, linestyle="-", label=f"Port {port}")
+
+    # 主机：虚线
+    for host, path in hosts:
+        t, y = read_throughput_csv(path)
+        y = moving_average(y, smooth_window)
+        ax.plot(t, y, linewidth=1.0, linestyle="--", label=f"Host {host}")
+
+    if start_ms is not None or end_ms is not None:
+        left, right = ax.get_xlim()
+        ax.set_xlim(start_ms if start_ms is not None else left,
+                    end_ms if end_ms is not None else right)
+
+    ax.set_xlabel("Time (ms)")
     ax.set_ylabel("Throughput (Gbps)")
     ax.set_title(title)
-    ax.grid(True, linestyle="--", alpha=0.45)
-    ax.legend(fontsize=8, loc="best")
-    fig.tight_layout()
-    fig.savefig(output, dpi=300, bbox_inches="tight")
+    ax.grid(True, linestyle="--", alpha=0.35)
 
-    print(f"已保存吞吐量图：{output}")
-    for label, points in sorted(cleaned.items(), key=order_key):
-        print(f"  {label}: {len(points)} points")
+    ax.legend(
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.12),
+        ncol=max(1, legend_columns),
+        fontsize=8,
+    )
+
+    fig.tight_layout()
+    output.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(output, dpi=300, bbox_inches="tight")
 
     if show:
         plt.show()
-    else:
-        plt.close(fig)
+
+    plt.close(fig)
 
 
-def build_argument_parser() -> argparse.ArgumentParser:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="绘制 FBM 主机发送吞吐量和交换机端口吞吐量。"
+        description="Plot all switch ports and all hosts throughput in one figure."
     )
-    parser.add_argument(
-        "input",
-        nargs="?",
-        default="filtered_output.txt",
-        help="包含吞吐量打印的日志文件，默认 filtered_output.txt。",
-    )
-    parser.add_argument(
-        "--data-dir",
-        type=Path,
-        help="实验输出目录；自动读取 port-throughput-*.csv 和可选 host-throughput-*.csv。",
-    )
-    parser.add_argument(
-        "--output",
-        type=Path,
-        default=Path("throughput_dynamics.png"),
-        help="输出图片路径。",
-    )
-    parser.add_argument(
-        "--start-ms", type=float, help="只绘制该相对时间之后的数据。"
-    )
-    parser.add_argument(
-        "--end-ms", type=float, help="只绘制该相对时间之前的数据。"
-    )
-    parser.add_argument(
-        "--title",
-        default="Switch and Host Throughput Dynamics (Per Port/Node)",
-        help="图标题。",
-    )
-    parser.add_argument(
-        "--no-show", action="store_true", help="只保存图片，不弹出窗口。"
-    )
-    parser.add_argument(
-        "--debug",
-        action="store_true",
-        help="打印包含对象关键词但未能解析的日志样例。",
-    )
+    parser.add_argument("data_dir", type=Path, help="directory containing throughput csv files")
+    parser.add_argument("--sim-name", default="test-tc2-05")
+    parser.add_argument("--ports", default=None, help="optional port filter, e.g. 0-5 or 0,1,3")
+    parser.add_argument("--hosts", default=None, help="optional host filter, e.g. 0-5 or 0,2,4")
+    parser.add_argument("--smooth-window", type=int, default=1)
+    parser.add_argument("--start-ms", type=float, default=None)
+    parser.add_argument("--end-ms", type=float, default=None)
+    parser.add_argument("--legend-columns", type=int, default=6)
+    parser.add_argument("--title", default="All switch ports and hosts throughput")
+    parser.add_argument("-o", "--output", type=Path, default=Path("all_ports_hosts_throughput.png"))
+    parser.add_argument("--show", action="store_true")
     return parser
 
 
 def main() -> int:
-    args = build_argument_parser().parse_args()
-    combined: Series = defaultdict(list)
-
-    input_path = Path(args.input)
-    if input_path.is_file():
-        merge_series(combined, parse_text_log(input_path, debug=args.debug))
-    elif args.input != "filtered_output.txt":
-        print(f"错误：日志文件不存在：{input_path}", file=sys.stderr)
-        return 2
-
-    if args.data_dir:
-        if not args.data_dir.is_dir():
-            print(f"错误：实验数据目录不存在：{args.data_dir}", file=sys.stderr)
-            return 2
-        merge_series(combined, load_csv_series(args.data_dir))
+    args = build_parser().parse_args()
 
     try:
-        plot_series(
-            combined,
-            args.output,
-            show=not args.no_show,
+        port_files, host_files = discover_files(args.data_dir, args.sim_name)
+
+        selected_ports = parse_filter(args.ports)
+        selected_hosts = parse_filter(args.hosts)
+
+        if selected_ports is not None:
+            port_files = [(port, path) for port, path in port_files if port in selected_ports]
+
+        if selected_hosts is not None:
+            host_files = [(host, path) for host, path in host_files if host in selected_hosts]
+
+        if not port_files:
+            raise ValueError("no port files remain after applying --ports")
+        if not host_files:
+            raise ValueError("no host files remain after applying --hosts")
+
+        plot_all(
+            ports=port_files,
+            hosts=host_files,
+            output=args.output,
+            smooth_window=max(1, args.smooth_window),
             start_ms=args.start_ms,
             end_ms=args.end_ms,
             title=args.title,
+            legend_columns=max(1, args.legend_columns),
+            show=args.show,
         )
-    except RuntimeError as exc:
-        print(f"错误：{exc}", file=sys.stderr)
+
+    except (OSError, ValueError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
         return 1
+
+    print("Ports plotted:")
+    for port, path in port_files:
+        print(f"  Port {port}: {path}")
+
+    print("Hosts plotted:")
+    for host, path in host_files:
+        print(f"  Host {host}: {path}")
+
+    print(f"Saved: {args.output}")
     return 0
 
 

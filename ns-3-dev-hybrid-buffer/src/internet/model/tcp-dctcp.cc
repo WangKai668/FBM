@@ -160,9 +160,22 @@ TcpDctcp::PktsAcked(Ptr<TcpSocketState> tcb, uint32_t segmentsAcked, const Time&
         {
             bytesEcn = static_cast<double>(m_ackedBytesEcn * 1.0 / m_ackedBytesTotal);
         }
+        double oldAlpha = m_alpha;
         m_alpha = (1.0 - m_g) * m_alpha + m_g * bytesEcn;
-        m_traceCongestionEstimate(m_ackedBytesEcn, m_ackedBytesTotal, m_alpha);
-        NS_LOG_INFO(this << "bytesEcn " << bytesEcn << ", m_alpha " << m_alpha);
+        m_traceCongestionEstimate(m_ackedBytesEcn, m_ackedBytesTotal,m_alpha);
+        std::cout << "DCTCP_ALPHA"
+                << ",time_s=" << Simulator::Now().GetSeconds()
+                << ",conn=" << this
+                << ",marked_bytes=" << m_ackedBytesEcn
+                << ",total_bytes=" << m_ackedBytesTotal
+                << ",fraction=" << bytesEcn
+                << ",g=" << m_g
+                << ",old_alpha=" << oldAlpha
+                << ",new_alpha=" << m_alpha
+                << ",cwnd_bytes=" << tcb->m_cWnd
+                << ",ssthresh_bytes=" << tcb->m_ssThresh
+                << std::endl;
+
         Reset(tcb);
     }
     // 打印TCP状态（不需要Socket访问）
@@ -173,6 +186,21 @@ TcpDctcp::PktsAcked(Ptr<TcpSocketState> tcb, uint32_t segmentsAcked, const Time&
                 "ECN-State: " << TcpSocketState::EcnStateName[tcb->m_ecnState] << ", " <<
                 "InFlight: " << tcb->m_bytesInFlight << " bytes, " <<
                 "CongState: " << TcpSocketState::TcpCongStateName[tcb->m_congState]<<" segment-size: "<<tcb->m_segmentSize<<std::endl;
+    std::cout << "TCP_STATE"
+            << ",time_s=" << Simulator::Now().GetSeconds()
+            << ",conn=" << this
+            << ",algorithm=TcpDctcp"
+            << ",cwnd_bytes=" << tcb->m_cWnd
+            << ",inflight_bytes=" << tcb->m_bytesInFlight
+            << ",ssthresh_bytes=" << tcb->m_ssThresh
+            << ",segment_size=" << tcb->m_segmentSize
+            << ",rtt_us=" << rtt.GetMicroSeconds()
+            << ",alpha=" << m_alpha
+            << ",ecn_state="
+            << TcpSocketState::EcnStateName[tcb->m_ecnState]
+            << ",cong_state="
+            << TcpSocketState::TcpCongStateName[tcb->m_congState]
+            << std::endl;
 }
 
 void

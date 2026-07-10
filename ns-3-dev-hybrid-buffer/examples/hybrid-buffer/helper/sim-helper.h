@@ -512,6 +512,13 @@ TraceQueueThroughput(Ptr<OutputStreamWrapper> stream, uint64_t* qTotalBytes, Tim
     Simulator::Schedule(measureWindow, &TraceQueueThroughput, stream, qTotalBytes, measureWindow);
     *qTotalBytes = 0;
 }
+
+
+inline void
+TraceHostRx(uint64_t* totalBytes, Ptr<const Packet> packet)
+{
+    *totalBytes += packet->GetSize();
+}
 } // namespace ns3
 
 #endif
