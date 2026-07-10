@@ -183,20 +183,11 @@ main(int argc, char* argv[])
     DataRate sendLinkCapacity = DataRate("100Gbps");
     Time sendLinkDelay = MicroSeconds(20);
 
-    Config::SetDefault("ns3::SwitchMmu::nextFilePath",
-                    StringValue("tc2-05/"));
-
-    Config::SetDefault("ns3::SwitchMmu::now_algorithm_name",
-                    StringValue(algorithm_name));
-
-    Config::SetDefault("ns3::SwitchMmu::Deeohir_threshold",
-                    DoubleValue(Deephir_threshold));
-
-    Config::SetDefault("ns3::SwitchMmu::if_change_threshold",
-                    UintegerValue(if_change_threshold));
-
-    Config::SetDefault("ns3::SwitchMmu::if_test9",
-                    UintegerValue(0));
+    Config::SetDefault("ns3::SwitchMmu::nextFilePath", StringValue("tc2-05/"));
+    Config::SetDefault("ns3::SwitchMmu::now_algorithm_name", StringValue(algorithm_name));
+    Config::SetDefault("ns3::SwitchMmu::Deeohir_threshold", DoubleValue(Deephir_threshold));
+    Config::SetDefault("ns3::SwitchMmu::if_change_threshold", UintegerValue(if_change_threshold));
+    Config::SetDefault("ns3::SwitchMmu::if_test9", UintegerValue(0));
 
     if (algorithm_name == "pbs")
     {
@@ -215,9 +206,7 @@ main(int argc, char* argv[])
                         StringValue("BMS"));
     }
 
-    hb::StarSimHelperTc202 simHelper("test-tc2-05",
-                                    Seconds(0),
-                                    Seconds(sim_time));
+    hb::StarSimHelperTc202 simHelper("test-tc2-05", Seconds(0), Seconds(sim_time));
 
     simHelper.ConfigTopology(numSpokes,
                             numReceivers,
@@ -226,16 +215,11 @@ main(int argc, char* argv[])
                             sendLinkCapacity,
                             sendLinkDelay);
 
-    // 使用TCP DCTCP，使持续拥塞流达到相对稳定状态
     simHelper.ConfigTransport("tcp", "ns3::TcpDctcp");
 
-    // ---------------------------------------------------------
     // 第一部分：2-to-1持续拥塞
-    // 节点1、2持续向接收端0发送
-    // ---------------------------------------------------------
 
-    const uint64_t persistentFlowSize =
-        1000ULL * 1000 * 1000; // 1 GB，保证26ms内不会结束
+    const uint64_t persistentFlowSize =1000ULL * 1000 * 1000; // 1 GB，保证26ms内不会结束
 
     simHelper.AddFlow(1,
                     0,
@@ -251,10 +235,7 @@ main(int argc, char* argv[])
                     DataRate("100Gbps"),
                     persistentFlowSize);
 
-    // ---------------------------------------------------------
-    // 第二部分：每隔5ms注入一次10-to-1突发
-    // 每个发送端250KB，每轮总量2.5MB
-    // ---------------------------------------------------------
+    // 第二部分：每隔5ms注入一次10-to-1突发  每个发送端250KB，每轮总量2.5MB
 
     const uint64_t burstFlowSize = 250ULL * 1000;
     const double burstTimes[] = {

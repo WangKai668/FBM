@@ -168,7 +168,6 @@ main(int argc, char* argv[])
     cmd.AddValue("Deephir_threshold", "deephir阈值", Deephir_threshold);
     cmd.AddValue("if_change_threshold", "是否改变DT阈值", if_change_threshold);
     cmd.AddValue("algorithm_name", "算法名", algorithm_name);
-    // cmd.AddValue("IsWeb", "真实流量跑Websearch还是hadoop?", isWeb);
 
     cmd.Parse(argc, argv);
 
@@ -186,20 +185,11 @@ main(int argc, char* argv[])
     DataRate sendLinkCapacity = DataRate("100Gbps");
     Time sendLinkDelay = MicroSeconds(20);
 
-    Config::SetDefault("ns3::SwitchMmu::nextFilePath",
-                    StringValue("tc2-05/"));
-
-    Config::SetDefault("ns3::SwitchMmu::now_algorithm_name",
-                    StringValue(algorithm_name));
-
-    Config::SetDefault("ns3::SwitchMmu::Deeohir_threshold",
-                    DoubleValue(Deephir_threshold));
-
-    Config::SetDefault("ns3::SwitchMmu::if_change_threshold",
-                    UintegerValue(if_change_threshold));
-
-    Config::SetDefault("ns3::SwitchMmu::if_test9",
-                    UintegerValue(0));
+    Config::SetDefault("ns3::SwitchMmu::nextFilePath",StringValue("tc2-05/"));             
+    Config::SetDefault("ns3::SwitchMmu::now_algorithm_name",StringValue(algorithm_name));
+    Config::SetDefault("ns3::SwitchMmu::Deeohir_threshold",DoubleValue(Deephir_threshold));
+    Config::SetDefault("ns3::SwitchMmu::if_change_threshold",UintegerValue(if_change_threshold));
+    Config::SetDefault("ns3::SwitchMmu::if_test9",UintegerValue(0));
 
     if (algorithm_name == "pbs")
     {
@@ -229,13 +219,9 @@ main(int argc, char* argv[])
                             sendLinkCapacity,
                             sendLinkDelay);
 
-    // 使用TCP DCTCP，使持续拥塞流达到相对稳定状态
     simHelper.ConfigTransport("tcp", "ns3::TcpDctcp");
 
-    // ---------------------------------------------------------
     // 第一部分：端口 0 上形成 2-to-1 持续拥塞
-    // 节点 2、3 持续向接收端 0 发送
-    // ---------------------------------------------------------
 
     const uint64_t persistentFlowSize =
         1000ULL * 1000 * 1000; // 1 GB，保证26ms内不会结束
@@ -254,12 +240,7 @@ main(int argc, char* argv[])
                     DataRate("100Gbps"),
                     persistentFlowSize);
 
-    // ---------------------------------------------------------
     // 第二部分：端口 1 上每隔 5 ms 注入一次 10-to-1 突发
-    // 节点 4～13 同时向接收端 1 发送
-    // 每个发送端 250 KB，每轮总量 250 KB × 10 = 2.5 MB
-    // ---------------------------------------------------------
-
     const uint64_t burstFlowSize = 250ULL * 1000;
     const double burstTimes[] = {
         0.005,
