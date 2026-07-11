@@ -952,7 +952,7 @@ class SwitchMmu : public Object
     double DT_alpha = 3;
 
     double UTILITY_ETA = 0.1; //效用函数参数
-    double MD_EPSILON = 5; // MD参数
+    double MD_EPSILON = 10; // MD参数
     double AI = 1 * 1e3; // AI因子
     double EWMA_W;  //lambda平滑因子    
 
@@ -964,7 +964,7 @@ class SwitchMmu : public Object
     double ReadDram_Size_Total = 0;
     double WriteDram_Rate_Total = 0;
     double ReadDram_Rate_Total = 0;
-    double Dr_EWMA = 0;
+    double Dr_EWMA = 1024;
 
     void CountSramThroughputDiff();
     double Sram_ThroughputDiff_Timer = 1000;

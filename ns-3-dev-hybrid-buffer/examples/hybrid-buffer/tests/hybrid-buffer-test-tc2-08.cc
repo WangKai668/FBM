@@ -170,7 +170,7 @@ main(int argc, char* argv[])
     double sim_time = 0.2;
     DataRate recvLinkCapacity = DataRate("100Gbps");
     Time recvLinkDelay = MicroSeconds(1);
-    DataRate sendLinkCapacity = DataRate("1000Gbps");
+    DataRate sendLinkCapacity = DataRate("2000Gbps");
     Time sendLinkDelay = MicroSeconds(1);
 
     hb::StarSimHelperTc201 simHelper("test-tc2-08", Seconds(0), Seconds(sim_time));
