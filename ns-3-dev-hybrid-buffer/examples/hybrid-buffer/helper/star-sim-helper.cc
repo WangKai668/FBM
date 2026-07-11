@@ -15,19 +15,36 @@ namespace hb
 
 NS_LOG_COMPONENT_DEFINE("StarSimHelper");
 
+static void
+TraceRedQueue(uint32_t port,
+              uint32_t priority,
+              uint32_t queueId,
+              uint64_t oldBytes,
+              uint64_t newBytes)
+{
+    std::cout << "RED_QDISC_QUEUE"
+              << ",time_s=" << Simulator::Now().GetSeconds()
+              << ",port=" << port
+              << ",priority=" << priority
+              << ",queue=" << queueId
+              << ",old_bytes=" << oldBytes
+              << ",bytes=" << newBytes
+              << std::endl;
+}
+
 StarSimHelper::StarSimHelper(std::string simName, Time start, Time stop)
     : SimHelper(simName, start, stop)
 {
     NS_LOG_FUNCTION(this << simName);
     m_mmu = nullptr;
     m_offChipBuffer = nullptr;
-    m_routerFifoQdiscFactory.SetTypeId("ns3::FifoQueueDisc");
+    // m_routerFifoQdiscFactory.SetTypeId("ns3::FifoQueueDisc");
     // Set The FIFO leaf Max Size to be 100,000 packet to avoid unnecessary
     // scheduler drops.
-    m_routerFifoQdiscFactory.Set("MaxSize", QueueSizeValue(QueueSize("100000000p")));
+    // m_routerFifoQdiscFactory.Set("MaxSize", QueueSizeValue(QueueSize("100000000p")));
 
-    m_routerRedQdisFatory.SetTypeId("ns3::RedQueueDisc");
-    m_routerRedQdisFatory.Set("MaxSize", QueueSizeValue(QueueSize("100000000p")));
+    // m_routerRedQdisFatory.SetTypeId("ns3::RedQueueDisc");
+    // m_routerRedQdisFatory.Set("MaxSize", QueueSizeValue(QueueSize("100000000p")));
     // m_routerRedQdisFatory.Set("MaxSize", QueueSizeValue(QueueSize("100000000p")));  // 最大 1000 包
     // m_routerRedQdisFatory.Set("UseEcn", BooleanValue(true));      // 启用 ECN
     // m_routerRedQdisFatory.Set("MinTh", DoubleValue(480));         // ECN 标记阈值（包数）
@@ -125,7 +142,7 @@ StarSimHelper::CreateTopology()
     PointToPointReorderHelper sendP2pHelper;
     sendP2pHelper.SetDeviceAttribute("DataRate", DataRateValue(m_sendLinkCapacity));
     sendP2pHelper.SetChannelAttribute("Delay", TimeValue(m_sendLinkDelay));
-    sendP2pHelper.SetQueueA("ns3::DropTailQueue", "MaxSize", QueueSizeValue(QueueSize("2p"))); //QueueSizeValue(m_reorderQueueSize));
+    sendP2pHelper.SetQueueA("ns3::DropTailQueue", "MaxSize", QueueSizeValue(QueueSize("2p"))); //QueueSizeValue(m_reorderQueueSize));   //QueueSize("2p")
     sendP2pHelper.SetQueueB("ns3::DropTailQueue", "MaxSize", QueueSizeValue(QueueSize("2p")));
 
     PointToPointReorderHelper recvP2pHelper;
@@ -312,21 +329,25 @@ StarSimHelper::SetupRouterQueueDisc()
             // 子队列：3 个 RedQueueDisc（替换原有的 FifoQueueDisc）
             for (uint32_t cs = 0; cs < 3; cs++)
             {
+                // 创建TCP
                 // 创建 RedQueueDisc 并配置 ECN
-                // Ptr<RedQueueDisc> redQdisc = m_routerRedQdisFatory.Create<RedQueueDisc>();
-                // if (!redQdisc) {
-                //     std::cout<<"Failed to create RedQueueDisc!"<< std::endl;
-                // }
-                // // std::cout<<"RedQueueDisc created: " << redQdisc->GetInstanceTypeId()<< std::endl;
+                Ptr<RedQueueDisc> redQdisc = m_routerRedQdisFatory.Create<RedQueueDisc>();
+                if (!redQdisc) {
+                    std::cout<<"Failed to create RedQueueDisc!"<< std::endl;
+                }
+                // std::cout<<"RedQueueDisc created: " << redQdisc->GetInstanceTypeId()<< std::endl;
+                redQdisc->TraceConnectWithoutContext(
+                    "BytesInQueue",
+                    MakeBoundCallback(&TraceRedQueue, i, 0, cs));
+                Ptr<QueueDiscClass> leafCls = CreateObject<QueueDiscClass>();
+                leafCls->SetQueueDisc(redQdisc);
+                hpQdisc->AddQueueDiscClass(leafCls);
 
-                // Ptr<QueueDiscClass> leafCls = CreateObject<QueueDiscClass>();
-                // leafCls->SetQueueDisc(redQdisc);
-                // hpQdisc->AddQueueDiscClass(leafCls);
-
-                Ptr<FifoQueueDisc> leafQdisc = m_routerFifoQdiscFactory.Create<FifoQueueDisc>();
-                    Ptr<QueueDiscClass> leafCls = CreateObject<QueueDiscClass>();
-                    leafCls->SetQueueDisc(leafQdisc);
-                    hpQdisc->AddQueueDiscClass(leafCls);
+                //创建UDP
+                // Ptr<FifoQueueDisc> leafQdisc = m_routerFifoQdiscFactory.Create<FifoQueueDisc>();
+                //     Ptr<QueueDiscClass> leafCls = CreateObject<QueueDiscClass>();
+                //     leafCls->SetQueueDisc(leafQdisc);
+                //     hpQdisc->AddQueueDiscClass(leafCls);
 
             }
         }
@@ -343,17 +364,22 @@ StarSimHelper::SetupRouterQueueDisc()
             uint32_t quantums[5] = {2, 2, 1, 1, 1};
             for (uint32_t cs = 0; cs < 5; cs++)
             {
-                // Ptr<RedQueueDisc> redQdisc = m_routerRedQdisFatory.Create<RedQueueDisc>();
-
-                // Ptr<DrrFlow> leafCls = CreateObject<DrrFlow>();
-                // leafCls->SetQuantum(quantums[cs]);
-                // leafCls->SetQueueDisc(redQdisc);
-                // lpQdisc->AddQueueDiscClass(leafCls);
-                Ptr<FifoQueueDisc> fifoQdisc = m_routerFifoQdiscFactory.Create<FifoQueueDisc>();
+                //创建TCP
+                Ptr<RedQueueDisc> redQdisc = m_routerRedQdisFatory.Create<RedQueueDisc>();
+                // 新增：记录LP分支Red队列长度
+                redQdisc->TraceConnectWithoutContext(
+                    "BytesInQueue",
+                    MakeBoundCallback(&TraceRedQueue, i, 1, cs));
                 Ptr<DrrFlow> leafCls = CreateObject<DrrFlow>();
                 leafCls->SetQuantum(quantums[cs]);
-                leafCls->SetQueueDisc(fifoQdisc);
+                leafCls->SetQueueDisc(redQdisc);
                 lpQdisc->AddQueueDiscClass(leafCls);
+                //创建UDP
+                // Ptr<FifoQueueDisc> fifoQdisc = m_routerFifoQdiscFactory.Create<FifoQueueDisc>();
+                // Ptr<DrrFlow> leafCls = CreateObject<DrrFlow>();
+                // leafCls->SetQuantum(quantums[cs]);
+                // leafCls->SetQueueDisc(fifoQdisc);
+                // lpQdisc->AddQueueDiscClass(leafCls);
                 
             }
         }
@@ -589,6 +615,28 @@ StarSimHelper::TraceSocket()
             }
         }
     }
+    if (m_enablePortThroughputTracing){
+        m_hostRxBytes.resize(m_nSpokes, 0);
+        for (uint32_t hostIndex = 0; hostIndex < m_spokeDevices.GetN(); ++hostIndex)
+        {
+            AsciiTraceHelper ascii;
+            std::stringstream filename;
+            filename << "host-throughput-" << m_simName  << "-n" << hostIndex << ".csv";
+            Ptr<OutputStreamWrapper> stream = ascii.CreateFileStream(filename.str());
+
+            *stream->GetStream() << "start,end,receiveRate" << std::endl;
+
+            m_spokeDevices.Get(hostIndex)->TraceConnectWithoutContext( "PhyRxEnd",   MakeBoundCallback(&TraceHostRx,  &m_hostRxBytes[nodeId]));
+
+            Simulator::Schedule(
+                m_startTime + m_portThroughputMeasureWindow,
+                &TracePortThroughput,
+                stream,
+                &m_hostRxBytes[hostIndex],
+                m_portThroughputMeasureWindow);
+        }
+    }
+
 }
 
 void

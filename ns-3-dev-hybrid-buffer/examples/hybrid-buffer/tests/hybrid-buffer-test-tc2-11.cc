@@ -334,16 +334,16 @@ main(int argc, char* argv[])
         Config::SetDefault("ns3::SwitchMmu::now_algorithm_name", StringValue("BMS"));
     }
 
-    // simHelper.EnableHbmThroughputTracing();
-    // simHelper.EnableBufferUsageTracing();
-    // simHelper.EnableBmResultTracing();
-    // simHelper.EnablePortThroughputTracing();
-    // simHelper.EnableQueueThroughputTracing();
-    // simHelper.EnableWCacheThroughputTracing();
-    // simHelper.EnableSramThroughputTracing();
-    // simHelper.EnableQueueWCacheTracing();
-    // simHelper.EnableQueueSramTracing();
-    // simHelper.EnableQueueHbmTracing();
+    simHelper.EnableHbmThroughputTracing();
+    simHelper.EnableBufferUsageTracing();
+    simHelper.EnableBmResultTracing();
+    simHelper.EnablePortThroughputTracing();
+    simHelper.EnableQueueThroughputTracing();
+    simHelper.EnableWCacheThroughputTracing();
+    simHelper.EnableSramThroughputTracing();
+    simHelper.EnableQueueWCacheTracing();
+    simHelper.EnableQueueSramTracing();
+    simHelper.EnableQueueHbmTracing();
 
     simHelper.Run();
 

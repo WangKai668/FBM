@@ -88,7 +88,7 @@ SimHelper::ConfigTransport(std::string socketType, std::string ccType)
     }
 
     m_ccType = ccType;
-
+    std::cout << "[TCP-CONFIG] CongestionControl=" << ccType << std::endl;
     Config::SetDefault("ns3::TcpL4Protocol::SocketType", StringValue(ccType));
     Config::SetDefault("ns3::TcpSocket::SegmentSize", UintegerValue(TCPPAYLOAD_BYTES));
     // Disable Delayed ACK

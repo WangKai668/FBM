@@ -177,6 +177,7 @@ main(int argc, char* argv[])
 
     cmd.Parse(argc, argv);
 
+
     uint32_t numSpokes = 22;   // 8
     uint32_t numReceivers = 3; // 4
     double sim_time = 0.2;
@@ -184,6 +185,24 @@ main(int argc, char* argv[])
     Time recvLinkDelay = MicroSeconds(20);
     DataRate sendLinkCapacity = DataRate("100Gbps"); // 1000Gbps
     Time sendLinkDelay = MicroSeconds(20);
+
+    Config::SetDefault("ns3::SwitchMmu::nextFilePath", StringValue("tc2-05/"));
+    Config::SetDefault("ns3::SwitchMmu::now_algorithm_name", StringValue(algorithm_name));
+    Config::SetDefault("ns3::SwitchMmu::Deeohir_threshold", DoubleValue(Deephir_threshold));
+    Config::SetDefault("ns3::SwitchMmu::if_change_threshold",UintegerValue(if_change_threshold));
+    Config::SetDefault("ns3::SwitchMmu::if_test9", UintegerValue(0));
+    if (!algorithm_name.compare("pbs"))
+    {
+        Config::SetDefault("ns3::SwitchMmu::BMAlgorithm", EnumValue(2)); // pbs
+        Config::SetDefault("ns3::SwitchMmu::now_algorithm_name", StringValue("pbs"));
+
+        std::cout << "yes pbs" << std::endl;
+    }
+    else
+    {
+        Config::SetDefault("ns3::SwitchMmu::BMAlgorithm", EnumValue(5)); // BMS
+        Config::SetDefault("ns3::SwitchMmu::now_algorithm_name", StringValue("BMS"));
+    }
 
     hb::StarSimHelperTc202 simHelper("test-tc2-05", Seconds(0), Seconds(sim_time));
 
@@ -193,15 +212,17 @@ main(int argc, char* argv[])
                              recvLinkDelay,
                              sendLinkCapacity,
                              sendLinkDelay);
+    simHelper.ConfigTransport("tcp", "ns3::TcpDctcp");
+
 
     using namespace std;
     simHelper.AddFlow(3, 0, Seconds(0.0000), Seconds(0.2), DataRate("2000Gbps"), 20*1000*1000);
     simHelper.AddFlow(4, 0, Seconds(0.0000), Seconds(0.2), DataRate("2000Gbps"), 20*1000*1000);
 
-    // for (int i = 5; i<=5+9-1; i++){
-    //     // simHelper.AddFlow(i, 0, Seconds(0.0000), Seconds(0.0003), DataRate("2000Gbps"));
-    //     simHelper.AddFlow(i, 1, Seconds(0.0006), Seconds(0.2), DataRate("2000Gbps"), 500*1000);
-    // }
+    for (int i = 5; i<=5+9-1; i++){
+        // simHelper.AddFlow(i, 0, Seconds(0.0000), Seconds(0.0003), DataRate("2000Gbps"));
+        simHelper.AddFlow(i, 1, Seconds(0.0006), Seconds(0.2), DataRate("2000Gbps"), 500*1000);
+    }
     /*
     
      virtual void AddFlow(uint32_t srcId,
@@ -226,23 +247,7 @@ main(int argc, char* argv[])
     */
     
 
-    Config::SetDefault("ns3::SwitchMmu::nextFilePath", StringValue("tc2-05/"));
-    Config::SetDefault("ns3::SwitchMmu::now_algorithm_name", StringValue(algorithm_name));
-    Config::SetDefault("ns3::SwitchMmu::Deeohir_threshold", DoubleValue(Deephir_threshold));
-    Config::SetDefault("ns3::SwitchMmu::if_change_threshold", UintegerValue(0));
-    Config::SetDefault("ns3::SwitchMmu::if_test9", UintegerValue(0));
-    if (!algorithm_name.compare("pbs"))
-    {
-        Config::SetDefault("ns3::SwitchMmu::BMAlgorithm", EnumValue(2)); // pbs
-        Config::SetDefault("ns3::SwitchMmu::now_algorithm_name", StringValue("pbs"));
 
-        std::cout << "yes pbs" << std::endl;
-    }
-    else
-    {
-        Config::SetDefault("ns3::SwitchMmu::BMAlgorithm", EnumValue(5)); // BMS
-        Config::SetDefault("ns3::SwitchMmu::now_algorithm_name", StringValue("BMS"));
-    }
 
     simHelper.EnableHbmThroughputTracing();
     simHelper.EnableBufferUsageTracing();

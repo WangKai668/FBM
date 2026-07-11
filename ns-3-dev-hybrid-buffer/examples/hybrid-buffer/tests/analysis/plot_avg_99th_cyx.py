@@ -162,6 +162,7 @@ def main():
     id = sys.argv[1]
     type = "4.0M"
     file_bms = base_dir + "/data" + "/BMS" + "/" + id  + "/" + type +  "/flow-analysis-" + id + ".txt"
+    file_bms = base_dir + "/data" + "/BMS" + "/" + id  + "/" + type +  "/flow-analysis-" + id + ".txt"
     file_pbs = base_dir + "/data" + "/pbs" + "/" + id + "/flow-analysis-" + id + ".txt"
 
     pbs_arr = get_data(file_pbs)

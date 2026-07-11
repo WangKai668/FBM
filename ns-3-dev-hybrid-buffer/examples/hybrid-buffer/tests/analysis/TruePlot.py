@@ -81,6 +81,54 @@ def test9_plot(testcase='tc2-04'):
     #打印Deephir和FBM的结果，复制到realPlot中画图。
     print(ax_data,1)
 
+def test9_plot(testcase="tc2-09"):
+    print("test9_plot被调用，收集所有BMS和PBS数据")
+    print(f"testcase={testcase}")
+
+    ax_data = []
+
+    # DeepHir/BMS
+    thresholds = [0.2, 0.5, 1.0, 2.0, 4.0]
+
+    file_path_pre = os.path.join(
+        data_dir,
+        "BMS",
+        testcase
+    )
+
+    for threshold in thresholds:
+        file_path = os.path.join(
+            file_path_pre,
+            f"{threshold}M",
+            "loss_packet.csv"
+        )
+
+        print(f"正在读取BMS-{threshold}M：{file_path}")
+
+        # 注意：这两行必须在for循环里面
+        loss_num = float(get_last_field(file_path))
+        ax_data.append(loss_num)
+
+    # PBS/FBM
+    file_path = os.path.join(
+        data_dir,
+        "pbs",
+        testcase,
+        "loss_packet.csv"
+    )
+
+    print(f"正在读取PBS：{file_path}")
+
+    loss_num = float(get_last_field(file_path))
+    ax_data.append(loss_num)
+
+    print("数据顺序：")
+    print("BMS-0.2M, BMS-0.5M, BMS-1.0M, BMS-2.0M, BMS-4.0M, PBS")
+    print(ax_data)
+
+    return ax_data
+
+
 if __name__ == "__main__":
     import sys
     testcase = sys.argv[1] if len(sys.argv) > 1 else 'tc2-04'

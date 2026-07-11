@@ -1,16 +1,67 @@
 #!/bin/bash
 
-if [ $# -lt 1 ]
-then
-  echo "缺少输入参数: "
-  exit 1
+# 添加一键运行命令
+if [[ $# -lt 1 ]]; then
+    echo "错误：缺少命令参数"
+    echo
+    echo "单场景运行："
+    echo "  ./run-tests.sh run hybrid-buffer-test-tc2-05 pbs"
+    echo
+    echo "批量运行："
+    echo "  ./run-tests.sh run_and_draw_all pbs"
+    echo "  ./run-tests.sh run_and_draw_all BMS"
+    echo "  ./run-tests.sh run_and_draw_all both"
+    echo
+    echo "基础场景："
+    echo "  ./run-tests.sh run_and_draw_basic"
+    echo
+    echo "只画图："
+    echo "  ./run-tests.sh draw_all"
+    exit 1
 fi
 
-if [ $# == 3 ]
-then
-  testcase=$2
-  algorithm=$3
-fi
+testcase=""
+algorithm=""
+case "$1" in
+    run|runTest8|runTest9)
+        if [[ $# -ne 3 ]]; then
+            echo "示例：./run-tests.sh run hybrid-buffer-test-tc2-05 pbs"
+            exit 1
+        fi
+        testcase="$2"
+        algorithm="$3"
+
+        if [[ "$1" == "runTest9" ]]; then
+            if [[ "$algorithm" != "pbs" &&
+                  "$algorithm" != "BMS" &&
+                  "$algorithm" != "both" ]]; then
+                echo "错误：算法只支持 pbs、BMS 或 both"
+                exit 1
+            fi
+        else
+            if [[ "$algorithm" != "pbs" &&
+                  "$algorithm" != "BMS" ]]; then
+                echo "错误：算法只支持 pbs 或 BMS"
+                exit 1
+            fi
+        fi
+        ;;
+    run_and_draw_all)
+        if [[ $# -ne 2 ]]; then
+            echo "错误：run_and_draw_all 需要算法参数"
+            echo "示例：./run-tests.sh run_and_draw_all both"
+            exit 1
+        fi
+        algorithm="$2"
+
+        if [[ "$algorithm" != "pbs" &&
+              "$algorithm" != "BMS" &&
+              "$algorithm" != "both" ]]; then
+            echo "错误：算法只支持 pbs、BMS 或 both"
+            exit 1
+        fi
+        ;;
+esac
 
 
 echo $algorithm
@@ -141,49 +192,102 @@ runTest8()
 
 runTest9()
 {
-  echo "testcase已自动更变为$testcase"
-  #testcase="hybrid-buffer-test-tc2-09"
-  echo "${algorithm}"
+  local case_id="${testcase#hybrid-buffer-test-}"
+  local final_dir
+  local output_file_real
+  local status
+
+  echo "testcase=$testcase"
+  echo "algorithm=$algorithm"
+  echo "TRAFFIC_GEN_DIR=$TRAFFIC_GEN_DIR"
+
+  # 检查流量目录
+  if [[ ! -d "$TRAFFIC_GEN_DIR" ]]; then
+    echo "错误：TrafficGen目录不存在：$TRAFFIC_GEN_DIR"
+    return 1
+  fi
+
+  # 检查两份流量文件
+  if [[ ! -f "$TRAFFIC_GEN_DIR/Generated/traffic_web.txt" ]]; then
+    echo "错误：缺少WebSearch流量文件："
+    echo "$TRAFFIC_GEN_DIR/Generated/traffic_web.txt"
+    return 1
+  fi
+
+  if [[ ! -f "$TRAFFIC_GEN_DIR/Generated/traffic_fbhdp.txt" ]]; then
+    echo "错误：缺少Hadoop流量文件："
+    echo "$TRAFFIC_GEN_DIR/Generated/traffic_fbhdp.txt"
+    return 1
+  fi
 
   echo "Starting testcase $testcase at $(date)"
 
-  if [[ "$algorithm" = "pbs" || "$algorithm" = "both" ]]; then
-    OUTPUT_DIR_real="${OUTPUT_DIR}/pbs"
+  # PBS
+  if [[ "$algorithm" == "pbs" || "$algorithm" == "both" ]]; then
+    final_dir="${OUTPUT_DIR}/pbs/${case_id}"
+    output_file_real="${final_dir}/${testcase}.txt"
+
+    mkdir -p "$final_dir"
+    rm -f "$final_dir"/*.csv
+
     echo "Starting testcase $testcase with pbs at $(date)"
-    final_dir="${OUTPUT_DIR_real}/${testcase:19:6}/"
-    output_file_real="${final_dir}/$testcase.txt"
-    rm -rf $final_dir/*.csv
-    (./ns3 run --cwd=$final_dir "$testcase --Deephir_threshold=1 --algorithm_name=pbs ") > ${output_file_real} &
-    sleep 1
+
+    ./ns3 run --cwd="$final_dir" \
+      "$testcase \
+      --Deephir_threshold=1 \
+      --algorithm_name=pbs \
+      --traffic_gen_dir=$TRAFFIC_GEN_DIR" \
+      > "$output_file_real" 2>&1
+
+    status=$?
+
+    if [[ $status -ne 0 ]]; then
+      echo "ERROR：PBS运行失败，退出码=$status"
+      echo "日志位置：$output_file_real"
+      return $status
+    fi
+
+    echo "Finished pbs at $(date)"
   fi
-  if [[ "$algorithm" = "BMS" || "$algorithm" = "both" ]]; then
-    # 流量速率
-    OUTPUT_DIR_real="${OUTPUT_DIR}/BMS"
-    for Deephir_threshold in 0.2 0.5 1.0 2.0 
+
+  # BMS：依次运行5个阈值
+  if [[ "$algorithm" == "BMS" || "$algorithm" == "both" ]]; then
+    for Deephir_threshold in 0.2 0.5 1.0 2.0 4.0
     do
+      final_dir="${OUTPUT_DIR}/BMS/${case_id}/${Deephir_threshold}M"
+      output_file_real="${final_dir}/${testcase}.txt"
+
+      mkdir -p "$final_dir"
+      rm -f "$final_dir"/*.csv
+
       echo "Starting testcase $testcase with Deephir_threshold=$Deephir_threshold at $(date)"
-      final_dir="${OUTPUT_DIR_real}/${testcase:19:6}/${Deephir_threshold}M/"
-      output_file_real="${final_dir}/$testcase.txt"
-      rm -rf $final_dir/*.csv
-      (./ns3 run --cwd=$final_dir "$testcase --Deephir_threshold=$Deephir_threshold --algorithm_name=BMS ") > ${output_file_real} &
-      sleep 1
-    done
-    for Deephir_threshold in 4.0
-    do
-      echo "Starting testcase $testcase with Deephir_threshold=$Deephir_threshold at $(date)"
-      final_dir="${OUTPUT_DIR_real}/${testcase:19:6}/${Deephir_threshold}M/"
-      output_file_real="${final_dir}/$testcase.txt"
-      rm -rf $final_dir/*.csv
-      (./ns3 run --cwd=$final_dir "$testcase --Deephir_threshold=$Deephir_threshold --algorithm_name=BMS ") > ${output_file_real}
+
+      ./ns3 run --cwd="$final_dir" \
+        "$testcase \
+        --Deephir_threshold=$Deephir_threshold \
+        --algorithm_name=BMS \
+        --traffic_gen_dir=$TRAFFIC_GEN_DIR" \
+        > "$output_file_real" 2>&1
+
+      status=$?
+
+      if [[ $status -ne 0 ]]; then
+        echo "ERROR：BMS运行失败"
+        echo "阈值：$Deephir_threshold"
+        echo "退出码：$status"
+        echo "日志位置：$output_file_real"
+        return $status
+      fi
+
+      echo "Finished threshold=$Deephir_threshold at $(date)"
     done
   fi
-  
-  echo "Finished testcase $testcase  at $(date)"
-  
-  cd "$PLOT_DIR" || exit 1
-  echo "---正在画" $testcase
-  python TruePlot.py
-  echo "---"$testcase "画完了" 
+
+  echo "Finished testcase $testcase at $(date)"
+
+  # 暂时先不自动画图，确保仿真数据完整生成
+  # cd "$PLOT_DIR" || return 1
+  # python3 TruePlot.py "$case_id"
 }
 
 run()
@@ -263,7 +367,7 @@ TrafficGen_wk(){
   echo "-------------------------------------------------"
 
   cd $TRAFFIC_GEN_DIR
-  python3 traffic_gen_wk.py *$@ 
+  python3 traffic_gen_wk.py "$@"
 }
 
 TrafficGen_original(){
@@ -279,274 +383,256 @@ TrafficGen_original(){
   echo "-------------------------------------------------"
 
   cd $TRAFFIC_GEN_DIR
-  python3 traffic_gen.py *$@ 
+  python3 traffic_gen.py "$@"
+}
+draw_basic_for_algorithm()
+{
+    local draw_algorithm="$1"
+    local case_id
+    cd "$PLOT_DIR" || return 1
+
+    for case_id in tc2-05 tc2-06 tc2-07
+    do
+        echo "正在绘制 $case_id"
+        if [[ "$draw_algorithm" == "BMS" ||
+              "$draw_algorithm" == "both" ]]; then
+            python3 ploting_sigle.py "$case_id" BMS || return 1
+        fi
+
+        if [[ "$draw_algorithm" == "pbs" ||
+              "$draw_algorithm" == "both" ]]; then
+            python3 ploting_sigle.py "$case_id" pbs || return 1
+        fi
+
+        if [[ "$draw_algorithm" == "both" ]]; then
+            python3 ploting_merge.py "$case_id" || return 1
+        fi
+
+        echo "$case_id 绘制完成"
+    done
+}
+
+
+################################################################################
+# 绘制 tc2-05 到 tc2-09
+draw_all_for_algorithm()
+{
+    local draw_algorithm="$1"
+
+    draw_basic_for_algorithm "$draw_algorithm" || return 1
+
+    cd "$PLOT_DIR" || return 1
+
+    echo "正在绘制 tc2-08"
+
+    # 当前原脚本只绘制了 tc2-08 的 PBS 结果
+    if [[ "$draw_algorithm" == "pbs" ||
+          "$draw_algorithm" == "both" ]]; then
+        python3 ploting_sigle.py tc2-08 pbs || return 1
+    fi
+
+    if [[ "$draw_algorithm" == "BMS" ]]; then
+        echo "提示：当前 tc2-08 的 BMS 数据包含阈值和速率两层目录，"
+        echo "      原 ploting_sigle.py 暂未确认是否支持该目录结构。"
+    fi
+
+    echo "正在绘制 tc2-09"
+    python3 TruePlot.py || return 1
+
+    echo "全部图绘制完成"
 }
 
 ###############################################################################################
 #一键用两种算法（pbs和deephir）跑tc2-05到tc2-07，典型场景、多突发、多拥塞，同时画图
-run_and_draw_basic(){
-  echo '正在用两种算法（pbs和deephir）跑从tc2-05到tc2-07所有的测试用例，同时一键画所有的图'
+run_and_draw_basic()
+{
+    local alg
+    local case_id
+    local prefix="hybrid-buffer-test-"
+    echo "开始运行基础场景：tc2-05 到 tc2-07"
+    for alg in BMS pbs
+    do
+        algorithm="$alg"
 
-  algorithm="BMS"
-  prefix="hybrid-buffer-test-"
-  echo "  #以下算法为：" $algorithm
-    testcase="${prefix}tc2-05"
-      echo "---正在跑" $testcase
-        run
-      echo "---"$testcase "跑完了" 
-    testcase="${prefix}tc2-06"
-      echo "---正在跑" $testcase
-        run
-      echo "---"$testcase "跑完了" 
-    testcase="${prefix}tc2-07"
-      echo "---正在跑" $testcase
-        run
-      echo "---"$testcase "跑完了" 
-  echo "  #算法" $algorithm "已结束"
-  
+        echo "当前算法：$algorithm"
 
-  
-  algorithm="pbs"
-  echo "  #以下算法为：" $algorithm
-    testcase="${prefix}tc2-05"
-      echo "---正在跑" $testcase
-        run
-      echo "---"$testcase "跑完了" 
-    testcase="${prefix}tc2-06"
-      echo "---正在跑" $testcase
-        run
-      echo "---"$testcase "跑完了" 
-    testcase="${prefix}tc2-07"
-      echo "---正在跑" $testcase
-        run
-      echo "---"$testcase "跑完了" 
-  echo "  #算法" $algorithm "已结束"
-  
+        for case_id in tc2-05 tc2-06 tc2-07
+        do
+            testcase="${prefix}${case_id}"
 
-  echo "*程序跑完了"
-  echo "###############################################################################################"
-  echo "*正在画图……"
+            echo "正在运行 $testcase，算法：$algorithm"
 
-    cd "$PLOT_DIR" || exit 1
-      testcase="tc2-05"
-        echo "---正在画" $testcase
-          python ploting_sigle.py $testcase BMS
-          python ploting_sigle.py $testcase pbs
-          python ploting_merge.py $testcase
-        echo "---"$testcase "画完了" 
-      testcase="tc2-06"
-        echo "---正在画" $testcase
-          python ploting_sigle.py $testcase BMS
-          python ploting_sigle.py $testcase pbs
-          python ploting_merge.py $testcase
-        echo "---"$testcase "画完了" 
-      testcase="tc2-07"
-        echo "---正在画" $testcase
-          python ploting_sigle.py $testcase BMS
-          python ploting_sigle.py $testcase pbs
-          python ploting_merge.py $testcase
-        echo "---"$testcase "画完了" 
-  echo "*图画完了"
+            if ! run; then
+                echo "错误：$testcase 使用 $algorithm 运行失败"
+                return 1
+            fi
+
+            echo "$testcase 使用 $algorithm 运行完成"
+        done
+    done
+
+    echo "基础场景全部运行完成，开始绘图"
+
+    draw_basic_for_algorithm both || return 1
 }
 
 ###############################################################################################
 #一键用两种算法（pbs和deephir）跑从tc2-05到tc2-09所有的测试用例，同时一键画所有的图
-run_and_draw_all(){
-  echo '正在用两种算法（pbs和deephir）跑从tc2-05到tc2-09所有的测试用例，同时一键画所有的图 ???'$algorithm
+run_and_draw_all()
+{
+    local requested_algorithm="$algorithm"
+    local case_id
+    local alg
+    local prefix="hybrid-buffer-test-"
+    local algorithm_list=()
 
-  if [[ "$algorithm" = "BMS" || "$algorithm" = "both" ]]; then  #代码有问题吗？ 报错：./run-tests.sh: 第 277 行: [: 缺少 `]'
-    algorithm="BMS"
-    prefix="hybrid-buffer-test-"
-    echo "  #以下算法为：" $algorithm
-      testcase="${prefix}tc2-05"
-        echo "---正在跑" $testcase
-          run
-        echo "---"$testcase "跑完了" 
-      testcase="${prefix}tc2-06"
-        echo "---正在跑" $testcase
-          run
-        echo "---"$testcase "跑完了" 
-      testcase="${prefix}tc2-07"
-        echo "---正在跑" $testcase
-          run
-        echo "---"$testcase "跑完了" 
-      testcase="${prefix}tc2-08"
-        echo "---正在跑" $testcase
-          runTest8
-        echo "---"$testcase "跑完了" 
-      testcase="${prefix}tc2-09"
-        echo "---正在跑" $testcase
-          runTest9
-        echo "---"$testcase "跑完了" 
-    echo "  #算法" $algorithm "已结束"
-  fi
+    case "$requested_algorithm" in
+        BMS)
+            algorithm_list=("BMS")
+            ;;
+        pbs)
+            algorithm_list=("pbs")
+            ;;
+        both)
+            algorithm_list=("BMS" "pbs")
+            ;;
+        *)
+            echo "错误：算法只支持 pbs、BMS 或 both"
+            return 1
+            ;;
+    esac
 
-  if [[ "$algorithm" = "pbs" || "$algorithm" = "both" ]]; then
-    algorithm="pbs"
-    prefix="hybrid-buffer-test-"
-    echo "  #以下算法为：" $algorithm
-      testcase="${prefix}tc2-05"
-        echo "---正在跑" $testcase
-          run
-        echo "---"$testcase "跑完了" 
-      testcase="${prefix}tc2-06"
-        echo "---正在跑" $testcase
-          run
-        echo "---"$testcase "跑完了" 
-      testcase="${prefix}tc2-07"
-        echo "---正在跑" $testcase
-          run
-        echo "---"$testcase "跑完了" 
-      testcase="${prefix}tc2-08"
-        echo "---正在跑" $testcase
-          runTest8
-        echo "---"$testcase "跑完了" 
-      testcase="${prefix}tc2-09"
-        echo "---正在跑" $testcase
-          runTest9
-        echo "---"$testcase "跑完了" 
-    echo "  #算法" $algorithm "已结束"
-  fi
+    echo "开始运行 tc2-05 到 tc2-09"
+    echo "指定算法：$requested_algorithm"
 
-  echo "*程序跑完了"
-  echo "###############################################################################################"
-  echo "*正在画图……"
+    for alg in "${algorithm_list[@]}"
+    do
+        algorithm="$alg"
 
-    cd "$PLOT_DIR" || exit 1
-      testcase="tc2-05"
-        echo "---正在画" $testcase
-          python ploting_sigle.py $testcase BMS
-          python ploting_sigle.py $testcase pbs
-          python ploting_merge.py $testcase
-        echo "---"$testcase "画完了" 
-      testcase="tc2-06"
-        echo "---正在画" $testcase
-          python ploting_sigle.py $testcase BMS
-          python ploting_sigle.py $testcase pbs
-          python ploting_merge.py $testcase
-        echo "---"$testcase "画完了" 
-      testcase="tc2-07"
-        echo "---正在画" $testcase
-          python ploting_sigle.py $testcase BMS
-          python ploting_sigle.py $testcase pbs
-          python ploting_merge.py $testcase
-        echo "---"$testcase "画完了" 
-      testcase="tc2-08"
-        echo "---正在画" $testcase
-          python ploting_sigle.py tc2-08 pbs
-        echo "---"$testcase "画完了" 
-      testcase="tc2-09"
-        echo "---正在画" $testcase
-          python TruePlot.py
-        echo "---"$testcase "画完了" 
-  echo "*图画完了"
+        echo "=================================================="
+        echo "当前算法：$algorithm"
+        echo "=================================================="
+
+        # tc2-05 到 tc2-07
+        for case_id in tc2-05 tc2-06 tc2-07
+        do
+            testcase="${prefix}${case_id}"
+
+            echo "正在运行 $testcase，算法：$algorithm"
+
+            if ! run; then
+                echo "错误：$testcase 使用 $algorithm 运行失败"
+                return 1
+            fi
+
+            echo "$testcase 使用 $algorithm 运行完成"
+        done
+
+        # tc2-08
+        testcase="${prefix}tc2-08"
+
+        echo "正在运行 $testcase，算法：$algorithm"
+
+        if ! runTest8; then
+            echo "错误：$testcase 使用 $algorithm 运行失败"
+            return 1
+        fi
+
+        echo "$testcase 使用 $algorithm 运行完成"
+
+        # tc2-09
+        testcase="${prefix}tc2-09"
+
+        echo "正在运行 $testcase，算法：$algorithm"
+
+        if ! runTest9; then
+            echo "错误：$testcase 使用 $algorithm 运行失败"
+            return 1
+        fi
+
+        echo "$testcase 使用 $algorithm 运行完成"
+    done
+
+    echo "所有仿真实验运行完成，开始绘图"
+
+    draw_all_for_algorithm "$requested_algorithm" || return 1
 }
 
-draw_all(){
-  echo "###############################################################################################"
-  echo "*正在画图……"
-    cd "$PLOT_DIR" || exit 1
-      testcase="tc2-05"
-        echo "---正在画" $testcase
-          python ploting_sigle.py $testcase BMS
-          python ploting_sigle.py $testcase pbs
-          python ploting_merge.py $testcase
-        echo "---"$testcase "画完了" 
-      testcase="tc2-06"
-        echo "---正在画" $testcase
-          python ploting_sigle.py $testcase BMS
-          python ploting_sigle.py $testcase pbs
-          python ploting_merge.py $testcase
-        echo "---"$testcase "画完了" 
-      testcase="tc2-07"
-        echo "---正在画" $testcase
-          python ploting_sigle.py $testcase BMS
-          python ploting_sigle.py $testcase pbs
-          python ploting_merge.py $testcase
-        echo "---"$testcase "画完了" 
-      testcase="tc2-08"
-        echo "---正在画" $testcase
-          python ploting_sigle.py tc2-08 pbs
-        echo "---"$testcase "画完了" 
-      testcase="tc2-09"
-        echo "---正在画" $testcase
-          python TruePlot.py
-        echo "---"$testcase "画完了" 
-  echo "*图画完了"
-  echo "###############################################################################################"
+draw_all()
+{
+    echo "开始绘制所有已有实验数据"
+
+    draw_all_for_algorithm both || return 1
 }
 
-if [ $1 == "help" ]
-then
-echohelp
-fi
+case "$1" in
+    help)
+        echohelp
+        ;;
 
-if [ $1 == "clean" ]
-then
-cleanFile
-fi
+    clean)
+        cleanFile
+        ;;
 
-if [ $1 == "kill" ]
-then
-killfunc
-fi
+    kill)
+        killfunc
+        ;;
 
-if [ $1 == "runall" ]
-then
-runall
-fi
+    plotall)
+        plotAll
+        ;;
 
-if [ $1 == "plotall" ]
-then
-plotAll
-fi
+    runTest8)
+        runTest8
+        ;;
 
-if [ $1 == "runTest8" ]
-then
-runTest8
-fi
+    runTest9)
+        runTest9
+        ;;
 
-if [ $1 == "run" ]
-then
-run
-fi
+    run)
+        run
+        ;;
 
-if [ $1 == "show" ]
-then
-showrun
-fi
+    show)
+        showrun
+        ;;
 
-if [ $1 == "TrafficGenWK" ]
-then
-TrafficGen_wk
-fi
+    TrafficGenWK)
+        TrafficGen_wk "${@:2}"
+        ;;
 
-if [ $1 == "TrafficGen" ]
-then
-TrafficGen_original
-fi
+    TrafficGen)
+        TrafficGen_original "${@:2}"
+        ;;
 
-if [ $1 == "runTest9" ]
-then
-runTest9
-fi
+    run_and_draw_all)
+        run_and_draw_all
+        ;;
 
-if [ $1 == "run_and_draw_all" ]
-then
-run_and_draw_all
-fi
+    run_and_draw_basic)
+        run_and_draw_basic
+        ;;
 
-if [ $1 == "run_and_draw_basic" ]
-then
-run_and_draw_basic
-fi
+    draw_all)
+        draw_all
+        ;;
 
-if [ $1 == "auto_run_draw" ]
-then
-auto_run_draw
-fi
-
-if [ $1 == "draw_all" ]
-then
-draw_all
-fi
+    *)
+        echo "错误：未知命令：$1"
+        echo
+        echo "支持的命令："
+        echo "  run"
+        echo "  runTest8"
+        echo "  runTest9"
+        echo "  run_and_draw_all"
+        echo "  run_and_draw_basic"
+        echo "  draw_all"
+        echo "  TrafficGen"
+        echo "  TrafficGenWK"
+        echo "  clean"
+        echo "  kill"
+        echo "  show"
+        exit 1
+        ;;
+esac

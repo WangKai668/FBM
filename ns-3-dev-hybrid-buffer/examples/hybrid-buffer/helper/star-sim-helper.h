@@ -221,6 +221,7 @@ class StarSimHelper : public SimHelper
 
 
     std::vector<uint64_t> m_portSendBytes;
+    std::vector<uint64_t> m_hostRxBytes;  //主机侧的吞吐
     std::vector<std::vector<uint64_t>> m_sqSendBytes;
     std::vector<std::vector<std::vector<uint64_t>>> m_queueSendBytes;
 

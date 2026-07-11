@@ -151,7 +151,7 @@ if __name__ == "__main__":
 			size = int(customRand.rand())
 			if size <= 0:
 				size = 1
-			n_flow += 1;
+			n_flow += 1
 			# ofile.write("%d %d 3 100 %d %.9f\n"%(src, dst, size, t * 1e-9))
 			# 这里输出的是（来源端口，目的端口，包大小，时间长度）
 			# 需要改成（来源端口，目的端口，开始时间，结束时间，传送速率）
