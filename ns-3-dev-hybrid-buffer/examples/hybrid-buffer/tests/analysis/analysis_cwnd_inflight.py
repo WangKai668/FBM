@@ -9,11 +9,10 @@ analysis_cwnd_inflight.py
 - InFlight
 - SSTHRESH
 
-纵轴默认换算成“包数”
+纵轴换算成包数
 
 使用：
-python3 analysis_cwnd_inflight.py /home/sj/FBM1/ns-3-dev-hybrid-buffer/examples/hy
-brid-buffer/tests/data/pbs/tc2-05/hybrid-buffer-test-tc2-05-sj-tcp.txt  
+python3 analysis_cwnd_inflight.py /home/sj/FBM1/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data/pbs/tc2-05/hybrid-buffer-test-tc2-05-sj-tcp.txt  
 （把名字写清楚就好）
 """
 

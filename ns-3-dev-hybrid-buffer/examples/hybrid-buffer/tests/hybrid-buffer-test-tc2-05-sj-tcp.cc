@@ -219,21 +219,19 @@ main(int argc, char* argv[])
 
     // 第一部分：2-to-1持续拥塞
 
-    const uint64_t persistentFlowSize =1000ULL * 1000 * 1000; // 1 GB，保证26ms内不会结束
-
     simHelper.AddFlow(1,
                     0,
                     Seconds(0.0),
                     Seconds(sim_time),
                     DataRate("100Gbps"),
-                    persistentFlowSize);
+                    100*1000*1000);
 
     simHelper.AddFlow(2,
                     0,
                     Seconds(0.0),
                     Seconds(sim_time),
                     DataRate("100Gbps"),
-                    persistentFlowSize);
+                    100*1000*1000);
 
     // 第二部分：每隔5ms注入一次10-to-1突发  每个发送端250KB，每轮总量2.5MB
 

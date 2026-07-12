@@ -182,7 +182,15 @@ main(int argc, char* argv[])
     std::string algorithm_name = "BMS";
     std::string trafficGenDir;
     // 1：WebSearch；0：Hadoop
-    int isWeb = 0;
+    //isWeb：
+    //1 = 读取 WebSearch 流量文件
+    //0 = 读取 Hadoop/FbHdp 流量文件
+
+    //isIncast：
+    ///1 = 在真实背景流量上额外加入 Incast 突发流
+    //0 = 只运行真实背景流量，不加入 Incast
+    
+    int isWeb = 1;
     int isIncast = 1;
     cmd.AddValue("Deephir_threshold","DeepHIR阈值",
                  Deephir_threshold);

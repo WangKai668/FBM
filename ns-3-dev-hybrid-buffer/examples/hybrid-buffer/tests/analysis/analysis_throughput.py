@@ -108,7 +108,7 @@ def extract_host(path: Path) -> int:
 
 def discover_files(data_dir: Path, sim_name: str) -> tuple[list[tuple[int, Path]], list[tuple[int, Path]]]:
     port_files = sorted(data_dir.glob(f"port-throughput-{sim_name}-p*.csv"))
-    host_files = sorted(data_dir.glob(f"host-throughput-{sim_name}-n*.csv"))
+    host_files = sorted(data_dir.glob(f"host-tx-throughput-{sim_name}-n*.csv"))
 
     if not port_files:
         raise FileNotFoundError(f"no port files found in {data_dir} for sim-name={sim_name}")
