@@ -10,6 +10,7 @@
 
 使用示例：
 python3 analysis_throughput.py   /home/sj/FBM1/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data/pbs/tc2-05   --sim-name test-tc2-05   --start-ms 0   --end-ms 26   -o all_ports_throughput.png
+python3 analysis_throughput.py   /home/wk/FBM/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data/BMS/tc2-05   --sim-name test-tc2-05   --start-ms 0   --end-ms 26   -o all_ports_throughput.png
 """
 
 from __future__ import annotations

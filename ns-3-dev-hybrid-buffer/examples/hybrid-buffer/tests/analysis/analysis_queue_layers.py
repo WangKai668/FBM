@@ -13,6 +13,8 @@ analysis_queue_layers.py
 
 使用：
 python3 analysis_queue_layers.py   /home/sj/FBM1/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data/pbs/tc2-05/hybrid-buffer-test-tc2-05-sj-tcp.txt   --port 0   --priority 0   --queue 0   --bin-us 1   --out-dir figures_queue_port0
+python3 analysis_queue_layers.py   /home/wk/FBM/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data/BMS/tc2-05/hybrid-buffer-test-tc2-05.txt   --port 0   --priority 0   --queue 0   --bin-us 1   --out-dir figures_queue_port0
+
 """
 
 from __future__ import annotations
@@ -145,10 +147,13 @@ def plot_bytes_queue(
     divisor = 1024.0 * 1024.0 if unit == "MiB" else 1024.0
 
     plt.figure(figsize=(11, 5.5))
-    plt.step(
+    plt.plot(
         [row["time_s"] * 1000.0 for row in rows],
         [row["bytes"] / divisor for row in rows],
-        where="post",
+        marker='o',  # 添加点样式
+        markersize=4,  # 设置点的大小
+        linestyle='-',  # 设置线条样式
+        label="Bytes",
     )
     plt.xlabel("Time (ms)")
     plt.ylabel(f"Queue occupancy ({unit})")
@@ -170,10 +175,12 @@ def plot_p2p_queue(
         return
 
     plt.figure(figsize=(11, 5.5))
-    plt.step(
+    plt.plot(
         [row["time_s"] * 1000.0 for row in rows],
         [row["packets"] for row in rows],
-        where="post",
+        marker='o',  # 添加点样式
+        markersize=4,  # 设置点的大小
+        linestyle='-',  # 设置线条样式
         label="Packets",
     )
     plt.xlabel("Time (ms)")
