@@ -519,6 +519,12 @@ TraceHostRx(uint64_t* totalBytes, Ptr<const Packet> packet)
 {
     *totalBytes += packet->GetSize();
 }
+
+inline void
+TraceHostTx(uint64_t* hostTxBytes, Ptr<const Packet> packet)
+{
+    *hostTxBytes += packet->GetSize();
+}
 } // namespace ns3
 
 #endif

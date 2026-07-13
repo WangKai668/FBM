@@ -15,7 +15,7 @@ namespace hb
 
 NS_LOG_COMPONENT_DEFINE("StarSimHelper");
 
-static void
+static void   //  --sj
 TraceRedQueue(uint32_t port,
               uint32_t priority,
               uint32_t queueId,
@@ -46,19 +46,20 @@ StarSimHelper::StarSimHelper(std::string simName, Time start, Time stop)
     // m_routerRedQdisFatory.SetTypeId("ns3::RedQueueDisc");
     // m_routerRedQdisFatory.Set("MaxSize", QueueSizeValue(QueueSize("100000000p")));
     // m_routerRedQdisFatory.Set("MaxSize", QueueSizeValue(QueueSize("100000000p")));  // 最大 1000 包
-    // m_routerRedQdisFatory.Set("UseEcn", BooleanValue(true));      // 启用 ECN
+    // m_routerRedQdisFatory.Set("UseEcn", BooleanValue(true));      // 启用 ECN  --sj
     // m_routerRedQdisFatory.Set("MinTh", DoubleValue(480));         // ECN 标记阈值（包数）
     // m_routerRedQdisFatory.Set("MaxTh", DoubleValue(480));         // 固定阈值（DCTCP 风格）
     // m_routerRedQdisFatory.Set("QW", DoubleValue(1.0));           // 队列权重
-
+    const double ecnMinTh = 480;
+    const double ecnMaxTh = 480;
     m_routerRedQdisFatory.SetTypeId("ns3::RedQueueDisc");
     m_routerRedQdisFatory.Set("UseEcn", BooleanValue(true));
     m_routerRedQdisFatory.Set("UseHardDrop", BooleanValue(false));
     m_routerRedQdisFatory.Set("MeanPktSize", UintegerValue(1500));
     m_routerRedQdisFatory.Set("MaxSize", QueueSizeValue(QueueSize("100000000p")));
     m_routerRedQdisFatory.Set("QW", DoubleValue(1));
-    m_routerRedQdisFatory.Set("MinTh", DoubleValue(480));
-    m_routerRedQdisFatory.Set("MaxTh", DoubleValue(480));
+    m_routerRedQdisFatory.Set("MinTh", DoubleValue(ecnMinTh));
+    m_routerRedQdisFatory.Set("MaxTh", DoubleValue(ecnMaxTh));
     m_routerRedQdisFatory.Set("LinkBandwidth", StringValue("100Gbps"));
     m_routerRedQdisFatory.Set("LinkDelay", StringValue("1us"));
     
@@ -74,6 +75,12 @@ StarSimHelper::StarSimHelper(std::string simName, Time start, Time stop)
     // Config::SetDefault("ns3::RedQueueDisc::LinkDelay", StringValue("10us"));
     
 
+    std::cout << "ECN_CONFIG"
+            << ",UseEcn=1"
+            << ",UseHardDrop=0"
+            << ",MinTh=" << ecnMinTh
+            << ",MaxTh=" << ecnMaxTh
+            << std::endl;
 
     m_enableHbmThroughputTracing = false;
     m_enableWCacheThroughputTracing = false;
@@ -329,7 +336,7 @@ StarSimHelper::SetupRouterQueueDisc()
             // 子队列：3 个 RedQueueDisc（替换原有的 FifoQueueDisc）
             for (uint32_t cs = 0; cs < 3; cs++)
             {
-                // 创建TCP
+                // 创建TCP  --sj
                 // 创建 RedQueueDisc 并配置 ECN
                 Ptr<RedQueueDisc> redQdisc = m_routerRedQdisFatory.Create<RedQueueDisc>();
                 if (!redQdisc) {
@@ -364,7 +371,7 @@ StarSimHelper::SetupRouterQueueDisc()
             uint32_t quantums[5] = {2, 2, 1, 1, 1};
             for (uint32_t cs = 0; cs < 5; cs++)
             {
-                //创建TCP
+                //创建TCP  --sj
                 Ptr<RedQueueDisc> redQdisc = m_routerRedQdisFatory.Create<RedQueueDisc>();
                 // 新增：记录LP分支Red队列长度
                 redQdisc->TraceConnectWithoutContext(
@@ -615,26 +622,54 @@ StarSimHelper::TraceSocket()
             }
         }
     }
-    if (m_enablePortThroughputTracing){
+    if (m_enablePortThroughputTracing)
+    {
         m_hostRxBytes.resize(m_nSpokes, 0);
-        for (uint32_t hostIndex = 0; hostIndex < m_spokeDevices.GetN(); ++hostIndex)
+        m_hostTxBytes.resize(m_nSpokes, 0);
+        for (uint32_t hostIndex = 0; hostIndex < m_spokeDevices.GetN();++hostIndex)
+        {
+            //主机接收吞吐量rx_host-throughput-仿真名-n主机编号.csv
         {
             AsciiTraceHelper ascii;
             std::stringstream filename;
-            filename << "host-throughput-" << m_simName  << "-n" << hostIndex << ".csv";
+                filename << "host-rx-throughput-" << m_simName << "-n" << hostIndex << ".csv";
             Ptr<OutputStreamWrapper> stream = ascii.CreateFileStream(filename.str());
 
-            *stream->GetStream() << "start,end,receiveRate" << std::endl;
+                *stream->GetStream()  << "start,end,receiveRate" << std::endl;
+                m_spokeDevices.Get(hostIndex)->TraceConnectWithoutContext("PhyRxEnd",
+                    MakeBoundCallback(
+                        &TraceHostRx,
+                        &m_hostRxBytes[hostIndex]));
+                Simulator::Schedule(
+                    m_startTime + m_portThroughputMeasureWindow,
+                    &TracePortThroughput,
+                    stream,
+                    &m_hostRxBytes[hostIndex],
+                    m_portThroughputMeasureWindow);
+            }
 
-            m_spokeDevices.Get(hostIndex)->TraceConnectWithoutContext( "PhyRxEnd",   MakeBoundCallback(&TraceHostRx,  &m_hostRxBytes[nodeId]));
+            //主机发送吞吐量文件格式：host-tx-throughput-仿真名-n主机编号.csv
+            {
+                AsciiTraceHelper ascii;
+                std::stringstream filename;
+                filename << "host-tx-throughput-"<< m_simName << "-n" << hostIndex << ".csv";
+                Ptr<OutputStreamWrapper> stream =ascii.CreateFileStream(filename.str());
+
+                *stream->GetStream() << "start,end,sendRate" << std::endl;
+
+                m_spokeDevices.Get(hostIndex)->TraceConnectWithoutContext( "PhyTxEnd",
+                    MakeBoundCallback(
+                        &TraceHostTx,
+                        &m_hostTxBytes[hostIndex]));
 
             Simulator::Schedule(
                 m_startTime + m_portThroughputMeasureWindow,
                 &TracePortThroughput,
                 stream,
-                &m_hostRxBytes[hostIndex],
+                    &m_hostTxBytes[hostIndex],
                 m_portThroughputMeasureWindow);
         }
+    }
     }
 
 }
