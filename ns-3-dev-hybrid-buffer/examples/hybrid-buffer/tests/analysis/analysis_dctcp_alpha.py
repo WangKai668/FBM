@@ -10,6 +10,8 @@ TCP_STATE 中的 alpha。
 
 使用：
 python3 analysis_dctcp_alpha.py /home/sj/FBM1/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data/pbs/tc2-05/hybrid-buffer-test-tc2-05-tcp.txt
+python3 analysis_dctcp_alpha.py  /home/wk/FBM/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data/BMS/tc2-05/hybrid-buffer-test-tc2-05.txt
+
 """
 
 from __future__ import annotations

@@ -75,7 +75,7 @@ TcpSocket::GetTypeId()
                 MakeUintegerChecker<uint32_t>())
             .AddAttribute("InitialSlowStartThreshold",
                           "TCP initial slow start threshold (bytes)",
-                          UintegerValue(UINT32_MAX),
+                          UintegerValue(1000), // default UINT32_MAX modified by wk
                           MakeUintegerAccessor(&TcpSocket::GetInitialSSThresh,
                                                &TcpSocket::SetInitialSSThresh),
                           MakeUintegerChecker<uint32_t>())

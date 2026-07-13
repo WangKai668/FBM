@@ -629,11 +629,11 @@ StarSimHelper::TraceSocket()
         for (uint32_t hostIndex = 0; hostIndex < m_spokeDevices.GetN();++hostIndex)
         {
             //主机接收吞吐量rx_host-throughput-仿真名-n主机编号.csv
-            {
-                AsciiTraceHelper ascii;
-                std::stringstream filename;
+        {
+            AsciiTraceHelper ascii;
+            std::stringstream filename;
                 filename << "host-rx-throughput-" << m_simName << "-n" << hostIndex << ".csv";
-                Ptr<OutputStreamWrapper> stream = ascii.CreateFileStream(filename.str());
+            Ptr<OutputStreamWrapper> stream = ascii.CreateFileStream(filename.str());
 
                 *stream->GetStream()  << "start,end,receiveRate" << std::endl;
                 m_spokeDevices.Get(hostIndex)->TraceConnectWithoutContext("PhyRxEnd",
@@ -662,14 +662,14 @@ StarSimHelper::TraceSocket()
                         &TraceHostTx,
                         &m_hostTxBytes[hostIndex]));
 
-                Simulator::Schedule(
-                    m_startTime + m_portThroughputMeasureWindow,
-                    &TracePortThroughput,
-                    stream,
+            Simulator::Schedule(
+                m_startTime + m_portThroughputMeasureWindow,
+                &TracePortThroughput,
+                stream,
                     &m_hostTxBytes[hostIndex],
-                    m_portThroughputMeasureWindow);
-            }
+                m_portThroughputMeasureWindow);
         }
+    }
     }
 
 }
