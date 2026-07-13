@@ -258,8 +258,8 @@ main(int argc, char* argv[])
     simHelper.EnableHbmThroughputTracing();
     simHelper.EnableBufferUsageTracing();
     simHelper.EnableBmResultTracing();
-    simHelper.EnablePortThroughputTracing(MicroSeconds(10));
-    simHelper.EnableQueueThroughputTracing(MicroSeconds(10));
+    simHelper.EnablePortThroughputTracing(MicroSeconds(100));
+    simHelper.EnableQueueThroughputTracing(MicroSeconds(100));
     simHelper.EnableWCacheThroughputTracing();
     simHelper.EnableSramThroughputTracing();
     simHelper.EnableQueueWCacheTracing();

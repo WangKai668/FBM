@@ -11,7 +11,7 @@
 - host-tx-throughput-test-tc2-05-n2.csv
 
 使用示例：
-python3 analysis_throughput.py /home/sj/FBM1/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data/pbs/tc2-05 --sim-name test-tc2-05 --start-ms 0 --end-ms 26 -o port_and_host_tx_throughput.png
+python3 analysis_throughput2.py /home/sj/FBM1/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data/pbs/tc2-05 --sim-name test-tc2-05 --start-ms 0 --end-ms 26 -o port_and_host_tx_throughput.png
 """
 
 from __future__ import annotations
