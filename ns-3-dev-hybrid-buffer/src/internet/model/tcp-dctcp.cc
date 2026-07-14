@@ -165,8 +165,8 @@ TcpDctcp::PktsAcked(Ptr<TcpSocketState> tcb, uint32_t segmentsAcked, const Time&
         m_traceCongestionEstimate(m_ackedBytesEcn, m_ackedBytesTotal,m_alpha);
         std::cout << "DCTCP_ALPHA"
                 << ",time_s=" << Simulator::Now().GetSeconds()
-                << ",conn=" << this
-                << ",marked_bytes=" << m_ackedBytesEcn
+                << ",conn=" << this       //区别不同的tcp连接
+                << ",marked_bytes=" << m_ackedBytesEcn   //当前 DCTCP 统计窗口内，被认为收到 ECN 反馈的确认字节数
                 << ",total_bytes=" << m_ackedBytesTotal
                 << ",fraction=" << bytesEcn
                 << ",g=" << m_g
@@ -178,14 +178,14 @@ TcpDctcp::PktsAcked(Ptr<TcpSocketState> tcb, uint32_t segmentsAcked, const Time&
 
         Reset(tcb);
     }
-    // 打印TCP状态（不需要Socket访问）
-    std::cout<< "TCP State - " << Simulator::Now().GetSeconds()<<
-                " CWND: " << tcb->m_cWnd << " bytes, " <<
-                "SSTHRESH: " << tcb->m_ssThresh << " bytes, " <<
-                "RTT: " << rtt.GetMilliSeconds() << " ms, " <<
-                "ECN-State: " << TcpSocketState::EcnStateName[tcb->m_ecnState] << ", " <<
-                "InFlight: " << tcb->m_bytesInFlight << " bytes, " <<
-                "CongState: " << TcpSocketState::TcpCongStateName[tcb->m_congState]<<" segment-size: "<<tcb->m_segmentSize<<std::endl;
+    // 打印TCP状态
+    // std::cout<< "TCP State - " << Simulator::Now().GetSeconds()<<
+    //             " CWND: " << tcb->m_cWnd << " bytes, " <<
+    //             "SSTHRESH: " << tcb->m_ssThresh << " bytes, " <<
+    //             "RTT: " << rtt.GetMilliSeconds() << " ms, " <<
+    //             "ECN-State: " << TcpSocketState::EcnStateName[tcb->m_ecnState] << ", " <<
+    //             "InFlight: " << tcb->m_bytesInFlight << " bytes, " <<
+    //             "CongState: " << TcpSocketState::TcpCongStateName[tcb->m_congState]<<" segment-size: "<<tcb->m_segmentSize<<std::endl;
     std::cout << "TCP_STATE"
             << ",time_s=" << Simulator::Now().GetSeconds()
             << ",conn=" << this

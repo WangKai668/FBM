@@ -108,6 +108,7 @@ void
 StarSimHelperTc202::SetupRouterPacketFilter()
 {
     NS_LOG_FUNCTION(this);
+    uint8_t protocolNumber = IsTcpTransport() ? TcpL4Protocol::PROT_NUMBER : UdpL4Protocol::PROT_NUMBER;
     Ptr<TrafficControlLayer> tc = m_hub->GetObject<TrafficControlLayer>();
     // Install packet filters for each output port
     for (uint32_t i = 0; i < m_nSpokes; i++)
@@ -119,7 +120,7 @@ StarSimHelperTc202::SetupRouterPacketFilter()
         {
             for (uint32_t cid = 0; cid < m_nReceivers; cid++)
             {
-                rootFilter->AddClassifyRule(TcpL4Protocol::PROT_NUMBER,
+                rootFilter->AddClassifyRule(protocolNumber,
                                             Ipv4Address::GetAny(),
                                             Ipv4Address::GetAny(),
                                             Ipv4Mask::GetZero(),
@@ -143,7 +144,7 @@ StarSimHelperTc202::SetupRouterPacketFilter()
             {
                 for (uint32_t cid = 0; cid < m_nReceivers; cid++)
                 {
-                    l2Filter->AddClassifyRule(TcpL4Protocol::PROT_NUMBER,
+                    l2Filter->AddClassifyRule(protocolNumber,
                                               Ipv4Address::GetAny(),
                                             Ipv4Address::GetAny(),
                                             Ipv4Mask::GetZero(),
@@ -170,11 +171,13 @@ main(int argc, char* argv[])
     double Deephir_threshold = 0.2;
     uint64_t if_change_threshold = 0;
     std::string algorithm_name = "BMS";
+    std::string transport = "udp";  // 默认 TCP
     cmd.AddValue("Deephir_threshold", "deephir阈值", Deephir_threshold);
     cmd.AddValue("if_change_threshold", "是否改变DT阈值", if_change_threshold);
     cmd.AddValue("algorithm_name", "算法名", algorithm_name);
     // cmd.AddValue("IsWeb", "真实流量跑Websearch还是hadoop?", isWeb);
-
+    cmd.AddValue("transport","传输协议：tcp 或 udp",
+                transport);
     cmd.Parse(argc, argv);
 
     uint32_t numSpokes = 35;   // 8
@@ -186,7 +189,7 @@ main(int argc, char* argv[])
     Time sendLinkDelay = MicroSeconds(20);
 
     hb::StarSimHelperTc202 simHelper("test-tc2-05", Seconds(0), Seconds(sim_time));
-
+    simHelper.SetTransportProtocol(transport);
     simHelper.ConfigTopology(numSpokes,
                              numReceivers,
                              recvLinkCapacity,

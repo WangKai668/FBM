@@ -1735,13 +1735,13 @@ SwitchMmu::Store(Ptr<Packet> packet, SwitchMmu::BmResult location) // 紧接上�
     m_qlens[port][qIndex] += psize; // 更新队列长度、队列使用量、队列接收总量等信息
     m_qUsed[port][priority][qIndex] += psize;
     //--sj  TCP增加的输出
-    std::cout << "MMU_PQS"
-          << ",time_s=" << Simulator::Now().GetSeconds()
-          << ",port=" << port
-          << ",priority=" << priority
-          << ",queue=" << qIndex
-          << ",bytes=" << m_qUsed[port][priority][qIndex]
-          << std::endl;
+    // std::cout << "MMU_PQS"
+    //       << ",time_s=" << Simulator::Now().GetSeconds()
+    //       << ",port=" << port
+    //       << ",priority=" << priority
+    //       << ",queue=" << qIndex
+    //       << ",bytes=" << m_qUsed[port][priority][qIndex]
+    //       << std::endl;
     m_qTotalRcvd[port][priority][qIndex] += psize;
     if (m_qUsed[port][priority][qIndex] >
         m_qMaxUsed[port][priority]

@@ -80,6 +80,7 @@ void
 StarSimHelperTc201::SetupRouterPacketFilter()
 {
     NS_LOG_FUNCTION(this);
+    uint8_t protocolNumber = IsTcpTransport() ? TcpL4Protocol::PROT_NUMBER : UdpL4Protocol::PROT_NUMBER;
     Ptr<TrafficControlLayer> tc = m_hub->GetObject<TrafficControlLayer>();
     // Install packet filters for each output port
     for (uint32_t i = 0; i < m_nSpokes; i++)
@@ -91,7 +92,7 @@ StarSimHelperTc201::SetupRouterPacketFilter()
         // 配置流流向
         for (uint32_t sid = m_nReceivers; sid < m_nSpokes; sid++)
         {
-            rootFilter->AddClassifyRule(UdpL4Protocol::PROT_NUMBER,
+            rootFilter->AddClassifyRule(protocolNumber,
                                         m_spokeInterfaces.GetAddress(sid),
                                         m_spokeInterfaces.GetAddress(sid - m_nReceivers),
                                         Ipv4Mask::GetOnes(),
@@ -113,7 +114,7 @@ StarSimHelperTc201::SetupRouterPacketFilter()
             Ptr<FiveTuplePacketFilter> l2Filter = CreateObject<FiveTuplePacketFilter>();
             for (uint32_t sid = m_nReceivers; sid < m_nSpokes; sid++)
             {
-                l2Filter->AddClassifyRule(UdpL4Protocol::PROT_NUMBER,
+                l2Filter->AddClassifyRule(protocolNumber,
                                           m_spokeInterfaces.GetAddress(sid),
                                           m_spokeInterfaces.GetAddress(sid - m_nReceivers),
                                           Ipv4Mask::GetOnes(),
@@ -141,11 +142,14 @@ main(int argc, char* argv[])
     uint64_t flow_rate = 100;
     uint64_t if_change_threshold = 0;
     std::string algorithm_name = "BMS";
+    std::string transport = "udp";  // 默认 TCP
     cmd.AddValue("Deephir_threshold", "deephir阈值", Deephir_threshold);
     cmd.AddValue("if_change_threshold", "是否改变DT阈值", if_change_threshold);
     cmd.AddValue("algorithm_name", "算法名", algorithm_name);
     cmd.AddValue("flow_rate", "流量速率", flow_rate);
-
+    cmd.AddValue("transport","传输协议：tcp 或 udp",
+                transport);
+                
     std::cout << "是否读取到了" << Deephir_threshold << std::endl;
     cmd.Parse(argc, argv);
     Config::SetDefault("ns3::SwitchMmu::nextFilePath",
@@ -174,7 +178,7 @@ main(int argc, char* argv[])
     Time sendLinkDelay = MicroSeconds(1);
 
     hb::StarSimHelperTc201 simHelper("test-tc2-08", Seconds(0), Seconds(sim_time));
-
+    simHelper.SetTransportProtocol(transport);
     simHelper.ConfigTopology(numSpokes,
                              numReceivers,
                              recvLinkCapacity,

@@ -4,7 +4,7 @@
 #include "sim-helper.h"
 #include <tuple>
 #include <optional>
-
+#include <string>
 #include <algorithm>
 
 namespace ns3
@@ -18,7 +18,26 @@ class StarSimHelper : public SimHelper
   public:
     StarSimHelper(std::string simName, Time start = Seconds(0), Time stop = Seconds(1));
     ~StarSimHelper() override;
-
+    // TCP / UDP 全局配置
+    enum class TransportProtocol
+    {
+        TCP,
+        UDP
+    };
+    void SetTransportProtocol(const std::string& protocol);
+    bool IsTcpTransport() const
+    {
+        return m_transportProtocol == TransportProtocol::TCP;
+    }
+    bool IsUdpTransport() const
+    {
+        return m_transportProtocol == TransportProtocol::UDP;
+    }
+    // 重写父类的 ConfigTransport
+    void ConfigTransport(
+        std::string socketType = "tcp",
+        std::string ccType = "ns3::TcpDctcp") override;
+    // --sj 添加控制
     void ConfigTopology() override
     {
         ConfigTopology(3, DataRate("40Gbps"), MicroSeconds(100));
@@ -166,6 +185,9 @@ class StarSimHelper : public SimHelper
     void SetupDefaultTraffic();
 
   protected:
+  
+    // 全局传输协议，默认使用 TCP
+    TransportProtocol m_transportProtocol = TransportProtocol::TCP;
     // topology parameters
     uint32_t m_nSpokes;          //!< Number of spoke nodes
     uint32_t m_nReceivers;       //!< Number of receivers (the first m_nReceivers spoke nodes are

@@ -87,6 +87,8 @@ void
 StarSimHelperTc201::SetupRouterPacketFilter()
 {
     NS_LOG_FUNCTION(this);
+    uint8_t protocolNumber = IsTcpTransport() ? TcpL4Protocol::PROT_NUMBER : UdpL4Protocol::PROT_NUMBER;
+    
     Ptr<TrafficControlLayer> tc = m_hub->GetObject<TrafficControlLayer>();
     // 为每个输出端口安装包过滤器
     for (uint32_t i = 0; i < m_nSpokes; i++)
@@ -98,7 +100,7 @@ StarSimHelperTc201::SetupRouterPacketFilter()
         // 配置流的流向
         for (uint32_t sid = m_nReceivers; sid < m_nSpokes; sid++)
         {
-            rootFilter->AddClassifyRule(UdpL4Protocol::PROT_NUMBER,
+            rootFilter->AddClassifyRule(protocolNumber,
                                         m_spokeInterfaces.GetAddress(sid),
                                         m_spokeInterfaces.GetAddress(sid - m_nReceivers),
                                         Ipv4Mask::GetOnes(),
@@ -121,7 +123,7 @@ StarSimHelperTc201::SetupRouterPacketFilter()
             Ptr<FiveTuplePacketFilter> l2Filter = CreateObject<FiveTuplePacketFilter>();
             for (uint32_t sid = m_nReceivers; sid < m_nSpokes; sid++)
             {
-                l2Filter->AddClassifyRule(UdpL4Protocol::PROT_NUMBER,
+                l2Filter->AddClassifyRule(protocolNumber,
                                           m_spokeInterfaces.GetAddress(sid),
                                           m_spokeInterfaces.GetAddress(sid - m_nReceivers),
                                           Ipv4Mask::GetOnes(),
@@ -162,9 +164,12 @@ main(int argc, char* argv[])
     // 解析命令行参数，支持算法名选择
     CommandLine cmd(__FILE__);
     std::string algorithm_name = "BMS"; // 默认算法名
+    std::string transport = "udp";  // 默认 TCP
     cmd.AddValue("algorithm_name", "算法名", algorithm_name);
+    cmd.AddValue("transport","传输协议：tcp 或 udp",
+            transport);
     cmd.Parse(argc, argv);
-
+    std::cout << "传输协议：" << transport << std::endl;
     // 仿真参数设置
     double ewma_w = 0.1; // EWMA 权重
     double eta_md = 1;   // eta_MD 参数
@@ -179,7 +184,7 @@ main(int argc, char* argv[])
 
     // 创建仿真辅助对象，传入仿真名称和时间
     hb::StarSimHelperTc201 simHelper("test-tc2-05", Seconds(0), Seconds(sim_time));
-
+    simHelper.SetTransportProtocol(transport);
     // 配置星型拓扑结构
     simHelper.ConfigTopology(numSpokes,
                              numReceivers,
