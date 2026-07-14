@@ -176,7 +176,7 @@ main(int argc, char* argv[])
     uint64_t flow_rate = 100;
     uint64_t if_change_threshold = 0;
     std::string algorithm_name = "BMS";
-    std::string transport = "tcp";  // 默认 TCP
+    std::string transport = "udp";  // 默认 TCP
     std::string trafficGenDir;
     int isWeb = 1;
     int isIncast = 1;

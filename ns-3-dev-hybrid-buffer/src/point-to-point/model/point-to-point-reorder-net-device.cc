@@ -136,12 +136,14 @@ PointToPointReorderNetDevice::Send(Ptr<Packet> packet, const Address& dest, uint
         if (m_mmu)
         {
             //--sj TCP输出添加
-            // std::cout << "P2P_REORDER_QUEUE"
-            //   << ",time_s=" << Simulator::Now().GetSeconds()
-            //   << ",port=" << packet->GetMmuUsedPort()
-            //   << ",bytes=" << m_queue->GetNBytes()
-            //   << ",packets=" << m_queue->GetNPackets()
-            //   << std::endl;
+            if(flag_print == 1){
+            std::cout << "P2P_REORDER_QUEUE"
+              << ",time_s=" << Simulator::Now().GetSeconds()
+              << ",port=" << packet->GetMmuUsedPort()
+              << ",bytes=" << m_queue->GetNBytes()
+              << ",packets=" << m_queue->GetNPackets()
+              << std::endl;
+            }
             NS_LOG_LOGIC("Fetch the packet from mmu");
             if (m_mmu->Fetch(packet))
             {
@@ -176,6 +178,20 @@ PointToPointReorderNetDevice::AttemptTransmission()
 
         packet = m_queue->Dequeue();
         // --sj TCP添加
+<<<<<<< HEAD
+        if(flag_print == 1){
+            if (m_mmu && packet)
+            {
+                std::cout << "P2P_REORDER_QUEUE"
+                        << ",time_s=" << Simulator::Now().GetSeconds()
+                        << ",port=" << packet->GetMmuUsedPort()
+                        << ",bytes=" << m_queue->GetNBytes()
+                        << ",packets=" << m_queue->GetNPackets()
+                        << std::endl;
+            }            
+        }
+
+=======
         // if (m_mmu && packet)
         // {
         //     std::cout << "P2P_REORDER_QUEUE"
@@ -185,6 +201,7 @@ PointToPointReorderNetDevice::AttemptTransmission()
         //             << ",packets=" << m_queue->GetNPackets()
         //             << std::endl;
         // }
+>>>>>>> upstream/main
         m_snifferTrace(packet);
         m_promiscSnifferTrace(packet);
         NS_LOG_LOGIC("Send the packet " << packet << "(UID=" << packet->GetUid() << ")");

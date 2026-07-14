@@ -182,6 +182,7 @@ class PointToPointReorderNetDevice : public PointToPointNetDevice
 
     bool m_enableMulticast;  //!< Enable multicast for each ingress port
     uint32_t m_copyNums;     //!< Number of copies
+    bool flag_print = 0;
 };
 
 } // namespace ns3

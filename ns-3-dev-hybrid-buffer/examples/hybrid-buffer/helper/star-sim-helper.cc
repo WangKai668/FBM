@@ -22,13 +22,40 @@ TraceRedQueue(uint32_t port,
               uint64_t oldBytes,
               uint64_t newBytes)
 {
-    std::cout << "RED_QDISC_QUEUE"
+    bool print_flag_star = 0;
+    if(print_flag_star == 1){
+         std::cout << "RED_QDISC_QUEUE"
               << ",time_s=" << Simulator::Now().GetSeconds()
               << ",port=" << port
               << ",priority=" << priority
               << ",queue=" << queueId
               << ",old_bytes=" << oldBytes
               << ",bytes=" << newBytes
+              << std::endl;
+    }
+
+}
+//重写这个函数
+void
+StarSimHelper::SetTransportProtocol(const std::string& protocol)
+{
+    if (protocol == "tcp" || protocol == "TCP")
+    {
+        m_transportProtocol = TransportProtocol::TCP;
+    }
+    else if (protocol == "udp" || protocol == "UDP")
+    {
+        m_transportProtocol = TransportProtocol::UDP;
+    }
+    else
+    {
+        NS_FATAL_ERROR("Unsupported transport protocol: "
+                       << protocol
+                       << ". Only tcp or udp is supported.");
+    }
+
+    std::cout << "Transport protocol configured as: "
+              << (IsTcpTransport() ? "TCP" : "UDP")
               << std::endl;
 }
 //重写这个函数
@@ -54,6 +81,28 @@ StarSimHelper::SetTransportProtocol(const std::string& protocol)
               << (IsTcpTransport() ? "TCP" : "UDP")
               << std::endl;
 }
+
+
+void
+StarSimHelper::ConfigTransport(std::string socketType,
+                               std::string ccType)
+{
+    // 不使用外部传入的 socketType，统一使用全局参数
+    if (IsTcpTransport())
+    {
+        SimHelper::ConfigTransport(
+            "tcp",
+            "ns3::TcpDctcp");
+    }
+    else
+    {
+        // UDP 不使用拥塞控制算法
+        SimHelper::ConfigTransport(
+            "udp",
+            "ns3::TcpNewReno");
+    }
+}
+
 
 
 void
