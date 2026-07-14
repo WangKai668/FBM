@@ -1,0 +1,4 @@
+[0/2] Re-checking globbed directories...
+ninja: build stopped: interrupted by user.
+Finished executing the following commands:
+cd cmake-cache; cmake --build . -j 63 ; cd ..

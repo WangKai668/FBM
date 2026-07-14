@@ -231,7 +231,7 @@ runTest9()
     rm -f "$final_dir"/*.csv
 
     echo "Starting testcase $testcase with pbs at $(date)"
-
+    echo "./ns3 run --cwd=\"$final_dir\" \"$testcase --Deephir_threshold=1 --algorithm_name=pbs --traffic_gen_dir=$TRAFFIC_GEN_DIR\""
     ./ns3 run --cwd="$final_dir" \
       "$testcase \
       --Deephir_threshold=1 \

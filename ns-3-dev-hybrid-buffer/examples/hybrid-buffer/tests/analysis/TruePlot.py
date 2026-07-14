@@ -40,7 +40,7 @@ def get_mean(file_name):
         mean = sum(throughput) / len(throughput)
         return mean
 
-def test9_plot(testcase='tc2-04'):
+def test9_plot(testcase='tc2-09'):
     print("test9_plot被调用，绘制所有需要的图【包含BMS，pbs】")
     print(f'testcase={testcase}')
     ax_data = [] #丢包loss

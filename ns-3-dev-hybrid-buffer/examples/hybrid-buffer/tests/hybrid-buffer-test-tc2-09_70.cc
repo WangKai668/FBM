@@ -235,7 +235,7 @@ main(int argc, char* argv[])
     double interval = 0.0010;
     double lastTime = 0.0001;
     double nowT = 0.0;
-    std::string filename = trafficGenDir + (isWeb ? "/Generated/traffic_web.txt"  : "/Generated/traffic_fbhdp.txt");
+    std::string filename = trafficGenDir + (isWeb ? "/Generated/traffic_web_70.txt"  : "/Generated/traffic_fbhdp.txt");
     std::cout << "TrafficGen目录：" << trafficGenDir << std::endl;
     std::cout << "读取流量文件：" << filename << std::endl;
     std::ifstream ifile(filename);
@@ -373,7 +373,7 @@ main(int argc, char* argv[])
 
     Config::SetDefault(
         "ns3::SwitchMmu::nextFilePath",
-        StringValue("tc2-09/"));
+        StringValue("tc2-09-70/"));
 
     Config::SetDefault(
         "ns3::SwitchMmu::now_algorithm_name",

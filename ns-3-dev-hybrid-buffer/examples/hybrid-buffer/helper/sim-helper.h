@@ -91,10 +91,10 @@ class SimHelper : public Object
 
     virtual void ConfigTopology() = 0;
     // NOTE: transport configuration should be run AFTER topology configuration
-    virtual void ConfigTransport(std::string socketType = "tcp",//"udp", modify be wk  default udp
-                                 std::string ccType = "ns3::TcpDctcp"); //TcpDctcp"); //TcpCubic");  default TcpNewReno");
-    // virtual void ConfigTransport(std::string socketType = "udp",//"udp", modify be wk  default udp
-    //                             std::string ccType = "ns3::TcpNewReno"); //TcpDctcp"); //TcpCubic");  default TcpNewReno");
+    // virtual void ConfigTransport(std::string socketType = "tcp",//"udp", modify be wk  default udp
+    //                              std::string ccType = "ns3::TcpDctcp"); //TcpDctcp"); //TcpCubic");  default TcpNewReno");
+    virtual void ConfigTransport(std::string socketType = "udp",//"udp", modify be wk  default udp
+                                std::string ccType = "ns3::TcpNewReno"); //TcpDctcp"); //TcpCubic");  default TcpNewReno");
 
     virtual void ConfigRoute()
     {
