@@ -37,7 +37,7 @@ NUMBER = r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?"
 
 
 HEADER_RE = re.compile(
-    rf"DebugDeepHir:\s+time:\s*(?P<time>{NUMBER})"
+    rf"DebugFBM:\s+time:\s*(?P<time>{NUMBER})"
     rf"\s+port:\s*(?P<port>\d+)"
 )
 
