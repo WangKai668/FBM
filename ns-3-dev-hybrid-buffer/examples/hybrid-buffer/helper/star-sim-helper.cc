@@ -22,7 +22,9 @@ TraceRedQueue(uint32_t port,
               uint64_t oldBytes,
               uint64_t newBytes)
 {
-    std::cout << "RED_QDISC_QUEUE"
+    bool print_flag_star = 0;
+    if(print_flag_star == 1){
+         std::cout << "RED_QDISC_QUEUE"
               << ",time_s=" << Simulator::Now().GetSeconds()
               << ",port=" << port
               << ",priority=" << priority
@@ -30,6 +32,8 @@ TraceRedQueue(uint32_t port,
               << ",old_bytes=" << oldBytes
               << ",bytes=" << newBytes
               << std::endl;
+    }
+
 }
 //重写这个函数
 void

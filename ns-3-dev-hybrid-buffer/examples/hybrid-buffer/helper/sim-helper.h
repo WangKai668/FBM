@@ -175,7 +175,7 @@ class SimHelper : public Object
     QueueSize m_reorderQueueSize;
     ObjectFactory m_mmuFactory;
     ObjectFactory m_offChipBufferFactory;
-
+    
     std::vector<FlowInfo> m_flows;
 };
 

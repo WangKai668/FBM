@@ -180,7 +180,7 @@ main(int argc, char* argv[])
     uint64_t flow_rate = 100;
     uint64_t if_change_threshold = 0;
     std::string algorithm_name = "BMS";
-    std::string transport = "tcp";  // 默认 TCP
+    std::string transport = "udp";  // 默认 TCP
     std::string trafficGenDir;
     // 1：WebSearch；0：Hadoop
     //isWeb：
@@ -206,7 +206,7 @@ main(int argc, char* argv[])
                  trafficGenDir);
     cmd.AddValue("transport","传输协议：tcp 或 udp",
                 transport);
-                
+
     cmd.Parse(argc, argv);
     std::cout << "DeepHIR阈值：" << Deephir_threshold << std::endl;
     std::cout << "算法名称：" << algorithm_name << std::endl;

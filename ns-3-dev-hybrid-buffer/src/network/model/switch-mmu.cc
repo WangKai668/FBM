@@ -939,41 +939,87 @@ SwitchMmu::CheckDeepHirBmAlgorithm(Ptr<Packet> packet) // 该函数用于检查�
     uint64_t wcacheUsed = m_offChipBuffer->GetWcacheUsed();
     uint64_t dramRemain = m_offChipBuffer->GetDramRemain();
     uint64_t wcacheSize = m_offChipBuffer->GetWcacheSize();
-
-    double DT_ths = (1.0 / m_activeQueNum[port]) * m_onChipBufferRemain;
-    double DT_thd = (1.0 / m_activeQueNum[port]) * dramRemain;
-
-    uint64_t DT_Threshold = DT_alpha * m_onChipBufferRemain; // DT;  alpha=2； 单位 B    动态阈值 = α × 当前剩余的片上缓存
-
-    const uint64_t Qis = UsedSram_Size_Cycle[port][priority][qIndex];  // --sj 从三维数组或三维容器中，读取某个具体队列当前占用的 SRAM 大小。
-
-    bmResult = BmResult(DROP); // 否则，直接丢弃数据包
-
-    if (print_flag == 1){
-        // 打印当前端口队列、SRAM队列、DRAM队列
-        // cout << "当前端口队列长度: " << qlen << " 剩余SRAM缓存: " << m_onChipBufferRemain << "剩余DRAM缓存: " << dramRemain << endl;
-    }
+    uint64_t DT_Threshold = DT_alpha * m_onChipBufferRemain;
+    // 当前队列在SRAM中的占用
+    const uint64_t Qis =UsedSram_Size_Cycle[port][priority][qIndex];
+    // 防止wcacheSize - wcacheUsed发生无符号整数下溢
+    const bool hasWcacheSpace =wcacheUsed <= wcacheSize && (wcacheSize - wcacheUsed) >= pktSize;
+    const bool hasDramSpace =dramRemain >= pktSize;
     NS_ASSERT_MSG(priority <= 1, "优先级只有2个");
-    if ((qlen + pktSize) <= m_wredTh[priority] && m_onChipBufferRemain >= pktSize && (Qis + pktSize) <= DT_Threshold){
+    // 默认决策为丢包
+    bmResult = BmResult(DROP);
+    // 满足静态阈值、SRAM剩余空间和DT动态阈值时，存入片内SRAM
+    if ((qlen + pktSize) <= m_wredTh[priority] &&m_onChipBufferRemain >= pktSize &&(Qis + pktSize) <= DT_Threshold)
+    {
         bmResult = BmResult(TO_ONCHIPBUFFER);
-        // cout << "Time:" << Simulator::Now() << "  packet:" << packet->GetUid() << " 端口:" << port
-        //     << " 存入片内" << endl;
+        // cout << "Time:" << Simulator::Now() << " packet:" << packet->GetUid()<< " 端口:" << port << " 存入片内" << endl;
     }
-    else{
-        if ((wcacheSize - wcacheUsed) >= pktSize && dramRemain >= pktSize) {
-            // cout << "Time:" << Simulator::Now() << "  packet:" << packet->GetUid()<< " 端口:" << port << " 存入片外" << endl;
+    else
+    {
+        // SRAM不满足条件时，检查是否能够存入片外DRAM
+        if ((wcacheSize - wcacheUsed) >= pktSize && dramRemain >= pktSize){
             bmResult = BmResult(TO_OFFCHIPBUFFER);
+            // cout << "Time:" << Simulator::Now()     << " packet:" << packet->GetUid() << " 端口:" << port << " 存入片外"  << endl;
         }
     }
-    if (bmResult == DROP){
-        if (wcacheSize - wcacheUsed < pktSize){
-            cout << "Time:" << Simulator::Now() << "  packet:" << packet->GetUid()<< " 端口:" << port << " 丢包原因:Dram带宽不足(wcahe不够)" <<" wcacheUsed/wcacheSize:"<<wcacheUsed<<"/"<<wcacheSize<< endl;
+    if (bmResult == BmResult(DROP))
+    {
+        if (wcacheSize - wcacheUsed < pktSize)
+        {
+            cout << "Time:" << Simulator::Now()<< " packet:" << packet->GetUid()<< " 端口:" << port << " 丢包原因:Dram带宽不足(wcache不够)" << " wcacheUsed/wcacheSize:"<< wcacheUsed << "/" << wcacheSize<< endl;
         }
-        else{
-            cout << "Time:" << Simulator::Now() << " packet:" << packet->GetUid() << " 端口:" << port << " 丢包原因:未知" << endl;
+        else if (!hasDramSpace)
+        {
+            cout << "Time:" << Simulator::Now() << " packet:" << packet->GetUid() << " 端口:" << port << " 丢包原因:DRAM剩余空间不足"<< " dramRemain/pktSize:"<< dramRemain << "/" << pktSize<< endl;
         }
     }
+    if (print_flag == 1)
+    {
+        // 当前队列总占用
+        const uint64_t qiBytes = qlen;
+        const uint64_t qiSBytes = (Qis <= qiBytes) ? Qis : qiBytes;
+        // 当前队列在DRAM中的占用
+        const uint64_t qiDBytes = (qiBytes >= qiSBytes) ? (qiBytes - qiSBytes) : 0;
+        // 判断当前队列是否同时存储在SRAM和DRAM
+        const bool isMixed = (qiSBytes > 0 && qiDBytes > 0);
+        const double arrivalRateActual = 0.0;
+        const double ewmaRate = 0.0;
+        const uint64_t dropReal = (bmResult == BmResult(DROP)) ? 1 : 0;
+        const uint64_t totalArrival = 1;
+        uint32_t storeDecision = 0;
 
+        if (bmResult == BmResult(TO_ONCHIPBUFFER))
+        {
+            storeDecision = 1;
+        }
+        else if (bmResult == BmResult(TO_OFFCHIPBUFFER))
+        {
+            storeDecision = 0;
+        }
+
+        cout << endl;
+        cout << "--------------------------------------------------------------------------"<< endl;
+        cout << "DebugDeepHir: "
+             << " time: " << Simulator::Now().GetNanoSeconds()<< " port: " << port
+             << " periodSeq: " << 0<< " T: " << 0
+             << " newT: " << 0<< " Decision(0片外,1片内): " << storeDecision << " bmResult(2丢包): " << bmResult
+             << " Usram: " << 0<< " Udram: " << 0 << endl;
+        cout << " (1) BufferStates: "
+             << " Qi: "<< static_cast<double>(qiBytes) / 1e6 << " QiS: "<< static_cast<double>(qiSBytes) / 1e6
+             << " QiD: "<< static_cast<double>(qiDBytes) / 1e6<< " mixed: " << isMixed
+             << " Sr: "<< static_cast<double>(m_onChipBufferRemain) / 1e6 << " Dr: "<< static_cast<double>(dramRemain) / 1e6
+             << " DT: "<< static_cast<double>(DT_Threshold) / 1e6 << " wCacheUsed/Size: "  << static_cast<double>(wcacheUsed) / 1e6
+             << "/" << static_cast<double>(wcacheSize) / 1e6<< endl;
+        cout << " (2) RateStates: " << " arrivalRateActual: " << arrivalRateActual<< " ewmaRate: " << ewmaRate << " inBytes: " << 0
+             << " outBytesFromSram/outBytesMax: "<< 0 << "/" << 0<< " deltaQiS: " << 0<< " DTnext: " << 0<< endl;
+        cout << " (3) Utility_Calculation: " << " U_1s: " << 0<< " U_2s: " << 0
+             << " U_1d: " << 0<< " U_2d: " << 0<< endl;
+        cout << " (4) T_Calculation: " << " deltaU: " << 0<< " MD: " << 0
+             << " U1Ss: " << 0<< " U1Ds: " << 0<< " U2Ss: " << 0<< " U2Ds: " << 0
+             << " U_Sstar: " << 0 << " U_Dstar: " << 0  << " drop_real/total_arrival: "<< dropReal << "/" << totalArrival<< endl;
+        cout << " (5) DecisionStates: " << " perPktDecisionFlag: " << 0<< " perPktDecisionCount: " << 0<< endl;
+        cout << "--------------------------------------------------------------------------" << endl << endl;
+    }
     return bmResult;
 }
 
@@ -1735,13 +1781,15 @@ SwitchMmu::Store(Ptr<Packet> packet, SwitchMmu::BmResult location) // 紧接上�
     m_qlens[port][qIndex] += psize; // 更新队列长度、队列使用量、队列接收总量等信息
     m_qUsed[port][priority][qIndex] += psize;
     //--sj  TCP增加的输出
-    // std::cout << "MMU_PQS"
-    //       << ",time_s=" << Simulator::Now().GetSeconds()
-    //       << ",port=" << port
-    //       << ",priority=" << priority
-    //       << ",queue=" << qIndex
-    //       << ",bytes=" << m_qUsed[port][priority][qIndex]
-    //       << std::endl;
+    if(print_flag == 0){
+        std::cout << "MMU_PQS"
+          << ",time_s=" << Simulator::Now().GetSeconds()
+          << ",port=" << port
+          << ",priority=" << priority
+          << ",queue=" << qIndex
+          << ",bytes=" << m_qUsed[port][priority][qIndex]
+          << std::endl;
+    }
     m_qTotalRcvd[port][priority][qIndex] += psize;
     if (m_qUsed[port][priority][qIndex] >
         m_qMaxUsed[port][priority]
