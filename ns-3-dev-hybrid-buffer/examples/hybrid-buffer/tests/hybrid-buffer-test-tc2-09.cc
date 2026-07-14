@@ -206,7 +206,6 @@ main(int argc, char* argv[])
                  trafficGenDir);
     cmd.AddValue("transport","传输协议：tcp 或 udp",
                 transport);
-
     cmd.Parse(argc, argv);
     std::cout << "DeepHIR阈值：" << Deephir_threshold << std::endl;
     std::cout << "算法名称：" << algorithm_name << std::endl;
