@@ -31,6 +31,51 @@ TraceRedQueue(uint32_t port,
               << ",bytes=" << newBytes
               << std::endl;
 }
+//重写这个函数
+void
+StarSimHelper::SetTransportProtocol(const std::string& protocol)
+{
+    if (protocol == "tcp" || protocol == "TCP")
+    {
+        m_transportProtocol = TransportProtocol::TCP;
+    }
+    else if (protocol == "udp" || protocol == "UDP")
+    {
+        m_transportProtocol = TransportProtocol::UDP;
+    }
+    else
+    {
+        NS_FATAL_ERROR("Unsupported transport protocol: "
+                       << protocol
+                       << ". Only tcp or udp is supported.");
+    }
+
+    std::cout << "Transport protocol configured as: "
+              << (IsTcpTransport() ? "TCP" : "UDP")
+              << std::endl;
+}
+
+
+void
+StarSimHelper::ConfigTransport(std::string socketType,
+                               std::string ccType)
+{
+    // 不使用外部传入的 socketType，统一使用全局参数
+    if (IsTcpTransport())
+    {
+        SimHelper::ConfigTransport(
+            "tcp",
+            "ns3::TcpDctcp");
+    }
+    else
+    {
+        // UDP 不使用拥塞控制算法
+        SimHelper::ConfigTransport(
+            "udp",
+            "ns3::TcpNewReno");
+    }
+}
+
 
 StarSimHelper::StarSimHelper(std::string simName, Time start, Time stop)
     : SimHelper(simName, start, stop)
@@ -38,10 +83,10 @@ StarSimHelper::StarSimHelper(std::string simName, Time start, Time stop)
     NS_LOG_FUNCTION(this << simName);
     m_mmu = nullptr;
     m_offChipBuffer = nullptr;
-    // m_routerFifoQdiscFactory.SetTypeId("ns3::FifoQueueDisc");
+    m_routerFifoQdiscFactory.SetTypeId("ns3::FifoQueueDisc");
     // Set The FIFO leaf Max Size to be 100,000 packet to avoid unnecessary
     // scheduler drops.
-    // m_routerFifoQdiscFactory.Set("MaxSize", QueueSizeValue(QueueSize("100000000p")));
+    m_routerFifoQdiscFactory.Set("MaxSize", QueueSizeValue(QueueSize("100000000p")));
 
     // m_routerRedQdisFatory.SetTypeId("ns3::RedQueueDisc");
     // m_routerRedQdisFatory.Set("MaxSize", QueueSizeValue(QueueSize("100000000p")));
@@ -336,26 +381,30 @@ StarSimHelper::SetupRouterQueueDisc()
             // 子队列：3 个 RedQueueDisc（替换原有的 FifoQueueDisc）
             for (uint32_t cs = 0; cs < 3; cs++)
             {
-                // 创建TCP  --sj
-                // 创建 RedQueueDisc 并配置 ECN
-                Ptr<RedQueueDisc> redQdisc = m_routerRedQdisFatory.Create<RedQueueDisc>();
-                if (!redQdisc) {
-                    std::cout<<"Failed to create RedQueueDisc!"<< std::endl;
-                }
-                // std::cout<<"RedQueueDisc created: " << redQdisc->GetInstanceTypeId()<< std::endl;
-                redQdisc->TraceConnectWithoutContext(
-                    "BytesInQueue",
-                    MakeBoundCallback(&TraceRedQueue, i, 0, cs));
-                Ptr<QueueDiscClass> leafCls = CreateObject<QueueDiscClass>();
-                leafCls->SetQueueDisc(redQdisc);
-                hpQdisc->AddQueueDiscClass(leafCls);
-
+                if (IsTcpTransport()){
+                    // 创建TCP  --sj
+                    // 创建 RedQueueDisc 并配置 ECN
+                    //std::cout<<"创建TCP  --sj"<< std::endl;
+                    Ptr<RedQueueDisc> redQdisc = m_routerRedQdisFatory.Create<RedQueueDisc>();
+                    if (!redQdisc) {
+                        std::cout<<"Failed to create RedQueueDisc!"<< std::endl;
+                    }
+                    // std::cout<<"RedQueueDisc created: " << redQdisc->GetInstanceTypeId()<< std::endl;
+                    redQdisc->TraceConnectWithoutContext(
+                        "BytesInQueue",
+                        MakeBoundCallback(&TraceRedQueue, i, 0, cs));
+                    Ptr<QueueDiscClass> leafCls = CreateObject<QueueDiscClass>();
+                    leafCls->SetQueueDisc(redQdisc);
+                    hpQdisc->AddQueueDiscClass(leafCls);
+                }else{
                 //创建UDP
-                // Ptr<FifoQueueDisc> leafQdisc = m_routerFifoQdiscFactory.Create<FifoQueueDisc>();
-                //     Ptr<QueueDiscClass> leafCls = CreateObject<QueueDiscClass>();
-                //     leafCls->SetQueueDisc(leafQdisc);
-                //     hpQdisc->AddQueueDiscClass(leafCls);
-
+                    //std::cout<<"创建UDP  --sj"<< std::endl;
+                    Ptr<FifoQueueDisc> leafQdisc = m_routerFifoQdiscFactory.Create<FifoQueueDisc>();
+                    Ptr<QueueDiscClass> leafCls = CreateObject<QueueDiscClass>();
+                    leafCls->SetQueueDisc(leafQdisc);
+                    hpQdisc->AddQueueDiscClass(leafCls);
+                }
+                
             }
         }
 
@@ -371,23 +420,26 @@ StarSimHelper::SetupRouterQueueDisc()
             uint32_t quantums[5] = {2, 2, 1, 1, 1};
             for (uint32_t cs = 0; cs < 5; cs++)
             {
-                //创建TCP  --sj
-                Ptr<RedQueueDisc> redQdisc = m_routerRedQdisFatory.Create<RedQueueDisc>();
-                // 新增：记录LP分支Red队列长度
-                redQdisc->TraceConnectWithoutContext(
-                    "BytesInQueue",
-                    MakeBoundCallback(&TraceRedQueue, i, 1, cs));
-                Ptr<DrrFlow> leafCls = CreateObject<DrrFlow>();
-                leafCls->SetQuantum(quantums[cs]);
-                leafCls->SetQueueDisc(redQdisc);
-                lpQdisc->AddQueueDiscClass(leafCls);
-                //创建UDP
-                // Ptr<FifoQueueDisc> fifoQdisc = m_routerFifoQdiscFactory.Create<FifoQueueDisc>();
-                // Ptr<DrrFlow> leafCls = CreateObject<DrrFlow>();
-                // leafCls->SetQuantum(quantums[cs]);
-                // leafCls->SetQueueDisc(fifoQdisc);
-                // lpQdisc->AddQueueDiscClass(leafCls);
-                
+                if (IsTcpTransport()){
+                    //创建TCP  --sj
+                    Ptr<RedQueueDisc> redQdisc = m_routerRedQdisFatory.Create<RedQueueDisc>();
+                    // 新增：记录LP分支Red队列长度
+                    redQdisc->TraceConnectWithoutContext(
+                        "BytesInQueue",
+                        MakeBoundCallback(&TraceRedQueue, i, 1, cs));
+                    Ptr<DrrFlow> leafCls = CreateObject<DrrFlow>();
+                    leafCls->SetQuantum(quantums[cs]);
+                    leafCls->SetQueueDisc(redQdisc);
+                    lpQdisc->AddQueueDiscClass(leafCls);
+                }else{
+                    //创建UDP
+                    Ptr<FifoQueueDisc> fifoQdisc = m_routerFifoQdiscFactory.Create<FifoQueueDisc>();
+                    Ptr<DrrFlow> leafCls = CreateObject<DrrFlow>();
+                    leafCls->SetQuantum(quantums[cs]);
+                    leafCls->SetQueueDisc(fifoQdisc);
+                    lpQdisc->AddQueueDiscClass(leafCls);
+                }
+
             }
         }
     }

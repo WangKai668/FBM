@@ -98,7 +98,7 @@ void
 StarSimHelperTc202::SetupRouterPacketFilter()
 {
     NS_LOG_FUNCTION(this);
-
+    uint8_t protocolNumber = IsTcpTransport() ? TcpL4Protocol::PROT_NUMBER : UdpL4Protocol::PROT_NUMBER;
     Ptr<TrafficControlLayer> tc =
         m_hub->GetObject<TrafficControlLayer>();
     // 为每个输出端口安装分组过滤器
@@ -114,7 +114,7 @@ StarSimHelperTc202::SetupRouterPacketFilter()
             for (uint32_t cid = 0; cid < m_nReceivers; cid++)
             {
                 rootFilter->AddClassifyRule(
-                    UdpL4Protocol::PROT_NUMBER,
+                    protocolNumber,
                     m_spokeInterfaces.GetAddress(sid),
                     m_spokeInterfaces.GetAddress(cid),
                     Ipv4Mask::GetOnes(),
@@ -152,7 +152,7 @@ StarSimHelperTc202::SetupRouterPacketFilter()
                      cid++)
                 {
                     l2Filter->AddClassifyRule(
-                        UdpL4Protocol::PROT_NUMBER,
+                        protocolNumber,
                         m_spokeInterfaces.GetAddress(sid),
                         m_spokeInterfaces.GetAddress(cid),
                         Ipv4Mask::GetOnes(),
@@ -180,12 +180,12 @@ main(int argc, char* argv[])
     uint64_t flow_rate = 100;
     uint64_t if_change_threshold = 0;
     std::string algorithm_name = "BMS";
+    std::string transport = "tcp";  // 默认 TCP
     std::string trafficGenDir;
     // 1：WebSearch；0：Hadoop
     //isWeb：
     //1 = 读取 WebSearch 流量文件
     //0 = 读取 Hadoop/FbHdp 流量文件
-
     //isIncast：
     ///1 = 在真实背景流量上额外加入 Incast 突发流
     //0 = 只运行真实背景流量，不加入 Incast
@@ -204,11 +204,15 @@ main(int argc, char* argv[])
                  isIncast);
     cmd.AddValue("traffic_gen_dir", "TrafficGen目录，由run-tests.sh传入",
                  trafficGenDir);
+    cmd.AddValue("transport","传输协议：tcp 或 udp",
+                transport);
+                
     cmd.Parse(argc, argv);
     std::cout << "DeepHIR阈值：" << Deephir_threshold << std::endl;
     std::cout << "算法名称：" << algorithm_name << std::endl;
     std::cout << "IsWeb：" << isWeb << std::endl;
     std::cout << "IsIncast：" << isIncast << std::endl;
+    std::cout << "传输协议：" << transport << std::endl;
     if (trafficGenDir.empty())
     {
         std::cerr << "错误：没有收到traffic_gen_dir参数。"<< std::endl;
@@ -223,6 +227,7 @@ main(int argc, char* argv[])
     DataRate sendLinkCapacity = DataRate("5000Gbps");
     Time sendLinkDelay = MicroSeconds(1);
     hb::StarSimHelperTc202 simHelper("test-tc2-09", Seconds(0), Seconds(sim_time));
+    simHelper.SetTransportProtocol(transport);
     simHelper.ConfigTopology(
         numSpokes,
         numReceivers,

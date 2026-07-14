@@ -95,17 +95,10 @@ def read_throughput_csv(
                 rate_bps / 1e9
             )
 
-<<<<<<< HEAD
-    if not times_ms:
-        raise ValueError(
-            f"no throughput samples in {path}"
-        )
-=======
     # if not times_ms:
     #     raise ValueError(
     #         f"no throughput samples in {path}"
     #     )
->>>>>>> upstream/main
 
     return times_ms, rates_gbps
 

@@ -1,4 +1,5 @@
 import sys
+import os
 import random
 import math
 import heapq
@@ -98,70 +99,101 @@ if __name__ == "__main__":
 		print("Error: Not valid cdf")
 		#sys.exit(0)
 
-	ofile = open(output, "w")
-
 	# generate flows
-	# 获取流大小的平均值(字节)
+	# 获取流大小平均值，单位 Byte
 	avg = customRand.getAvg()
-	
-	# 计算平均到达间隔时间(ns)
-	# 公式推导: 
-	# 1. 带宽(bps) * 负载 = 实际流量速率(bps)
-	# 2. 实际流量速率 / 8 = 字节速率(Bps) 
-	# 3. 字节速率 / avg = 每秒流数(flows/s)
-	# 4. 取倒数得到流间隔时间(s)
-	# 5. 乘以1e9转换为纳秒(ns)
-	avg_inter_arrival = 1/(bandwidth*load/8./avg)*1000000000  
-	
-	# 打印调试信息: 带宽和平均流大小
-	print('bandwidth: ', bandwidth, "avg_size: ",avg,"avg_itv: ", avg_inter_arrival)
-	
-	# 预估总流数量 = (总时间/平均间隔时间) * (主机数-6)
-	# n_flow_estimate = int(time / avg_inter_arrival * (nhost - receiver))
-	n_flow_estimate = int(time / avg_inter_arrival * receiver)  #这样负载好像才是对的，
-	
-	# 初始化实际流计数器
-	n_flow = 0
-	
-	# 打印调试信息: 预估流数量和主机数
-	print(n_flow_estimate, nhost)
-	
-	# ofile.write("%d \n"%n_flow_estimate)
-	print(f"n_flow_estimate={n_flow_estimate}")#######################################################################
 
-	host_list = [(base_t + int(poisson(avg_inter_arrival)), i) for i in range(receiver,nhost)]
+	# 发送端数量：
+	# 0～5 是接收端，6～29 是发送端
+	num_senders = nhost - receiver
+
+	if num_senders <= 0:
+		print("错误：发送端数量必须大于0")
+		sys.exit(1)
+	# 平均每个接收端对应多少个发送端
+	# nhost=30、receiver=6 时，fan_in=24/6=4
+	fan_in = num_senders / receiver
+	# 目标 load 表示接收端出口链路负载。
+	# 平均4个发送端打向1个接收端，因此单发送端的到达间隔放大4倍。
+	avg_inter_arrival = (1 / (bandwidth * load / 8.0 / avg)* 1e9* fan_in)
+
+	n_flow_estimate = int(
+		time / avg_inter_arrival * num_senders
+	)
+
+	print(
+		"bandwidth:", bandwidth,
+		"avg_size:", avg,
+		"num_senders:", num_senders,
+		"receivers:", receiver,
+		"fan_in:", fan_in,
+		"avg_itv:", avg_inter_arrival
+	)
+
+	print("n_flow_estimate =", n_flow_estimate)
+
+	# 每个发送端的第一次流到达时间
+	host_list = [
+		(base_t + max(1, int(poisson(avg_inter_arrival))), src)
+		for src in range(receiver, nhost)
+	]
+
 	heapq.heapify(host_list)
 
-	dataTime = 0
+	# 流量结束时间
+	end_t = base_t + time
 
-	i = 1
-	while i <= n_flow_estimate:
-		i+=1
-		t,src = host_list[0]
-		inter_t = int(poisson(avg_inter_arrival))
-		new_tuple = (src, t + inter_t)
-		dst = random.randint(0, receiver-1)
-		#while (dst == src):
-		#	dst = random.randint(0, nhost-1)
-		if (t + inter_t > time + base_t):
-			heapq.heappop(host_list)
-		else:
-			size = int(customRand.rand())
-			if size <= 0:
-				size = 1
-			n_flow += 1;
-			# ofile.write("%d %d 3 100 %d %.9f\n"%(src, dst, size, t * 1e-9))
-			dataTime = t * 1e-9# 更新时间
-			#print(size, bandwidth)
-			ofile.write("%d %d %.9f %d\n"%( src, dst, dataTime , size ))
-			heapq.heapreplace(host_list, (t + inter_t, src))
+	# 保存所有生成的流
+	flows = []
 
-	
-	print(f"流量文件生成完毕，位于{output}")
+	while host_list:
+		# 取下一条最早到达的流
+		t, src = heapq.heappop(host_list)
 
-	ofile.seek(0)
-	ofile.write("%d"%n_flow)
-	ofile.close()
+		# 所有剩余到达时间都已超过结束时间
+		if t > end_t:
+			break
+
+		# 随机选择0～5号接收端
+		dst = random.randint(0, receiver - 1)
+
+		# 按CDF随机生成流大小
+		size = int(customRand.rand())
+		if size <= 0:
+			size = 1
+
+		# ns转为秒
+		start_time = t * 1e-9
+
+		flows.append((src, dst, start_time, size))
+
+		# 为该发送端生成下一条流的到达时间
+		inter_t = max(1, int(poisson(avg_inter_arrival)))
+		next_t = t + inter_t
+
+		if next_t <= end_t:
+			heapq.heappush(host_list, (next_t, src))
+
+	# 确保输出目录存在
+	import os
+
+	output_dir = os.path.dirname(output)
+	if output_dir:
+		os.makedirs(output_dir, exist_ok=True)
+
+	# 一次性写入文件，避免覆盖第一条流
+	with open(output, "w") as ofile:
+		# 第一行：实际流数量
+		ofile.write(f"{len(flows)}\n")
+
+		# 后续每行：src dst start_time size
+		for src, dst, start_time, size in flows:
+			ofile.write(
+				f"{src} {dst} {start_time:.9f} {size}\n"
+			)
+
+	print("实际生成流数量：", len(flows))
+	print(f"流量文件生成完毕，位于 {output}")
 
 '''
 	f_list = []

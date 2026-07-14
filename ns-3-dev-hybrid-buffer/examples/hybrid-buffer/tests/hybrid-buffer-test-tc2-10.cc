@@ -108,6 +108,7 @@ void
 StarSimHelperTc202::SetupRouterPacketFilter()
 {
     NS_LOG_FUNCTION(this);
+    uint8_t protocolNumber = IsTcpTransport() ? TcpL4Protocol::PROT_NUMBER : UdpL4Protocol::PROT_NUMBER;
     Ptr<TrafficControlLayer> tc = m_hub->GetObject<TrafficControlLayer>();
     // Install packet filters for each output port
     for (uint32_t i = 0; i < m_nSpokes; i++)
@@ -121,7 +122,7 @@ StarSimHelperTc202::SetupRouterPacketFilter()
         {
             for (uint32_t cid = 0; cid < m_nReceivers; cid++)
             {
-                rootFilter->AddClassifyRule(UdpL4Protocol::PROT_NUMBER,
+                rootFilter->AddClassifyRule(protocolNumber,
                                             m_spokeInterfaces.GetAddress(sid),
                                             m_spokeInterfaces.GetAddress(cid),
                                             Ipv4Mask::GetOnes(),
@@ -147,7 +148,7 @@ StarSimHelperTc202::SetupRouterPacketFilter()
             {
                 for (uint32_t cid = 0; cid < m_nReceivers; cid++)
                 {
-                    l2Filter->AddClassifyRule(UdpL4Protocol::PROT_NUMBER,
+                    l2Filter->AddClassifyRule(protocolNumber,
                                               m_spokeInterfaces.GetAddress(sid),
                                               m_spokeInterfaces.GetAddress(cid),
                                               Ipv4Mask::GetOnes(),
@@ -175,6 +176,7 @@ main(int argc, char* argv[])
     uint64_t flow_rate = 100;
     uint64_t if_change_threshold = 0;
     std::string algorithm_name = "BMS";
+    std::string transport = "tcp";  // 默认 TCP
     std::string trafficGenDir;
     int isWeb = 0;
     int isIncast = 0;
@@ -187,7 +189,9 @@ main(int argc, char* argv[])
              "TrafficGen目录，由run-tests.sh传入",
              trafficGenDir);
     // cmd.AddValue("flow_rate", "流量速率", flow_rate);
-
+    cmd.AddValue("transport","传输协议：tcp 或 udp",
+                transport);
+              
     std::cout << "是否读取到了" << Deephir_threshold << std::endl;
     cmd.Parse(argc, argv);
 
@@ -203,7 +207,7 @@ main(int argc, char* argv[])
     Time sendLinkDelay = MicroSeconds(1);
 
     hb::StarSimHelperTc202 simHelper("test-tc2-10", Seconds(0), Seconds(sim_time));
-
+    simHelper.SetTransportProtocol(transport);
     simHelper.ConfigTopology(numSpokes,
                              numReceivers,
                              recvLinkCapacity,

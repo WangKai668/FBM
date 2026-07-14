@@ -108,6 +108,8 @@ void
 StarSimHelperTc202::SetupRouterPacketFilter()
 {
     NS_LOG_FUNCTION(this);
+    uint8_t protocolNumber = IsTcpTransport() ? TcpL4Protocol::PROT_NUMBER : UdpL4Protocol::PROT_NUMBER;
+    
     Ptr<TrafficControlLayer> tc = m_hub->GetObject<TrafficControlLayer>();
     // Install packet filters for each output port
     for (uint32_t i = 0; i < m_nSpokes; i++)
@@ -119,7 +121,7 @@ StarSimHelperTc202::SetupRouterPacketFilter()
         {
             for (uint32_t cid = 0; cid < m_nReceivers; cid++)
             {
-                rootFilter->AddClassifyRule(TcpL4Protocol::PROT_NUMBER,
+                rootFilter->AddClassifyRule(protocolNumber,
                                             Ipv4Address::GetAny(),
                                             Ipv4Address::GetAny(),
                                             Ipv4Mask::GetZero(),
@@ -143,7 +145,7 @@ StarSimHelperTc202::SetupRouterPacketFilter()
             {
                 for (uint32_t cid = 0; cid < m_nReceivers; cid++)
                 {
-                    l2Filter->AddClassifyRule(TcpL4Protocol::PROT_NUMBER,
+                    l2Filter->AddClassifyRule(protocolNumber,
                                               Ipv4Address::GetAny(),
                                             Ipv4Address::GetAny(),
                                             Ipv4Mask::GetZero(),
@@ -171,22 +173,26 @@ main(int argc, char* argv[])
     uint64_t flow_rate = 100;
     uint64_t if_change_threshold = 0;
     std::string algorithm_name = "BMS";
+    std::string transport = "tcp";  // 默认 TCP
     std::string trafficGenDir;
     int isWeb = 0;
     int isIncast = 0;
+
     cmd.AddValue("Deephir_threshold", "deephir阈值", Deephir_threshold);
     cmd.AddValue("if_change_threshold", "是否改变DT阈值", if_change_threshold);
     cmd.AddValue("algorithm_name", "算法名", algorithm_name);
     cmd.AddValue("IsWeb", "真实流量跑Websearch还是hadoop?", isWeb);
-    
     cmd.AddValue("traffic_gen_dir",
-                "TrafficGen目录，由run-tests.sh传入",
-                trafficGenDir);
+             "TrafficGen目录，由run-tests.sh传入",
+             trafficGenDir);
+    cmd.AddValue("transport","传输协议：tcp 或 udp",
+                transport);
     // cmd.AddValue("IsIncast", "真实流量是否加Incast?", isIncast);
     // cmd.AddValue("flow_rate", "流量速率", flow_rate);
-    cmd.Parse(argc, argv);
-    std::cout << "是否读取到了" << Deephir_threshold << std::endl;
 
+    std::cout << "是否读取到了" << Deephir_threshold << std::endl;
+    std::cout << "传输协议：" << transport << std::endl;
+    cmd.Parse(argc, argv);
     // CommandLine cmd(__FILE__);
     // cmd.Parse(argc, argv);
 
@@ -194,49 +200,65 @@ main(int argc, char* argv[])
     uint32_t numReceivers = 6; // 4
     double sim_time = 0.2;
     DataRate recvLinkCapacity = DataRate("100Gbps");
-    Time recvLinkDelay = MicroSeconds(1);
+    Time recvLinkDelay = MicroSeconds(5);
     DataRate sendLinkCapacity = DataRate("100Gbps"); // 1000Gbps
-    Time sendLinkDelay = MicroSeconds(1);
+    Time sendLinkDelay = MicroSeconds(5);
 
+
+    Config::SetDefault("ns3::SwitchMmu::nextFilePath", StringValue("tc2-02/"));
+
+    Config::SetDefault("ns3::SwitchMmu::now_algorithm_name", StringValue(algorithm_name));
+    Config::SetDefault("ns3::SwitchMmu::Deeohir_threshold", DoubleValue(Deephir_threshold));
+    Config::SetDefault("ns3::SwitchMmu::if_change_threshold", UintegerValue(1));
+    Config::SetDefault("ns3::SwitchMmu::if_test9", UintegerValue(1));
+    if (!algorithm_name.compare("pbs"))
+    {
+        Config::SetDefault("ns3::SwitchMmu::BMAlgorithm", EnumValue(2)); // pbs
+        Config::SetDefault("ns3::SwitchMmu::now_algorithm_name", StringValue("pbs"));
+
+        std::cout << "yes pbs" << std::endl;
+    }
+    else
+    {
+        Config::SetDefault("ns3::SwitchMmu::BMAlgorithm", EnumValue(5)); // BMS
+        Config::SetDefault("ns3::SwitchMmu::now_algorithm_name", StringValue("BMS"));
+    }
     hb::StarSimHelperTc202 simHelper("test-tc2-02", Seconds(0), Seconds(sim_time));
-
+    
+    simHelper.SetTransportProtocol(transport);
     simHelper.ConfigTopology(numSpokes,
                              numReceivers,
                              recvLinkCapacity,
                              recvLinkDelay,
                              sendLinkCapacity,
                              sendLinkDelay);
-
+    
+    simHelper.ConfigTransport("tcp", "ns3::TcpDctcp");
 
     std::string file;
+
     if (trafficGenDir.empty())
     {
         std::cerr << "错误：没有收到 traffic_gen_dir 参数" << std::endl;
         return 1;
     }
-    // 02.cc 默认 isWeb = 0，默认读取 traffic_fbhdp2.txt
-    std::string filename = trafficGenDir + (isWeb? "/Generated/traffic_web2.txt" : "/Generated/traffic_fbhdp2.txt");
+    std::string filename = trafficGenDir +(isWeb? "/Generated/traffic_web2.txt" : "/Generated/traffic_fbhdp2.txt");
     std::cout << "TrafficGen目录：" << trafficGenDir << std::endl;
     std::cout << "读取流量文件：" << filename << std::endl;
     std::ifstream ifile(filename);
     if (!ifile.is_open())
     {
-        std::cerr << "错误：无法打开流量文件：" << filename << std::endl;
+        std::cerr << "无法打开流量文件：" << filename << std::endl;
         return 1;
     }
-    // 将文件读入字符串
-    std::ostringstream buf;
+    // 将文件读入到ostringstream对象buf中
+    ostringstream buf;
     char ch;
-    while (ifile.get(ch))
-    {
+    while (buf && ifile.get(ch))
         buf.put(ch);
-    }
+    // 返回与流对象buf关联的字符串
     file = buf.str();
-    if (file.empty())
-    {
-        std::cerr << "错误：流量文件为空：" << filename << std::endl;
-        return 1;
-    }
+
     std::vector<std::string> lines;
     split(file, lines, "\n");
     lines.erase(lines.begin());
@@ -259,26 +281,6 @@ main(int argc, char* argv[])
                 << std::stod(words.at(3)) / 1000
                 << "kB " << std::stoi(words.at(0)) << "到" << std::stoi(words.at(1)) << " start_Time: "
                 << Seconds(std::stod(words.at(2)) - 2)  << endl;
-    }
-    
-
-    Config::SetDefault("ns3::SwitchMmu::nextFilePath", StringValue("tc2-02/"));
-
-    Config::SetDefault("ns3::SwitchMmu::now_algorithm_name", StringValue(algorithm_name));
-    Config::SetDefault("ns3::SwitchMmu::Deeohir_threshold", DoubleValue(Deephir_threshold));
-    Config::SetDefault("ns3::SwitchMmu::if_change_threshold", UintegerValue(1));
-    Config::SetDefault("ns3::SwitchMmu::if_test9", UintegerValue(1));
-    if (!algorithm_name.compare("pbs"))
-    {
-        Config::SetDefault("ns3::SwitchMmu::BMAlgorithm", EnumValue(2)); // pbs
-        Config::SetDefault("ns3::SwitchMmu::now_algorithm_name", StringValue("pbs"));
-
-        std::cout << "yes pbs" << std::endl;
-    }
-    else
-    {
-        Config::SetDefault("ns3::SwitchMmu::BMAlgorithm", EnumValue(5)); // BMS
-        Config::SetDefault("ns3::SwitchMmu::now_algorithm_name", StringValue("BMS"));
     }
 
     simHelper.EnableHbmThroughputTracing();

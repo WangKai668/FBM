@@ -12,13 +12,8 @@ analysis_cwnd_inflight.py
 纵轴换算成包数
 
 使用：
-<<<<<<< HEAD
 python3 analysis_cwnd_inflight.py /home/sj/FBM1/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data/pbs/tc2-05/hybrid-buffer-test-tc2-05-sj-tcp.txt  
-=======
-python3 analysis_cwnd_inflight.py /home/sj/FBM1/ns-3-dev-hybrid-buffer/examples/hy
-brid-buffer/tests/data/pbs/tc2-05/hybrid-buffer-test-tc2-05-sj-tcp.txt  
 python3 analysis_cwnd_inflight.py /home/wk/FBM/ns-3-dev-hybrid-buffer/examples/hybrid-buffer/tests/data/BMS/tc2-05/hybrid-buffer-test-tc2-05.txt
->>>>>>> upstream/main
 （把名字写清楚就好）
 """
 
