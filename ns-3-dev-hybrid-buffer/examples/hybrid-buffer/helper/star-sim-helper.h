@@ -187,7 +187,7 @@ class StarSimHelper : public SimHelper
   protected:
 
     // 全局传输协议，默认使用 TCP
-    TransportProtocol m_transportProtocol = TransportProtocol::UDP;
+    TransportProtocol m_transportProtocol = TransportProtocol::TCP;
     // topology parameters
     uint32_t m_nSpokes;          //!< Number of spoke nodes
     uint32_t m_nReceivers;       //!< Number of receivers (the first m_nReceivers spoke nodes are

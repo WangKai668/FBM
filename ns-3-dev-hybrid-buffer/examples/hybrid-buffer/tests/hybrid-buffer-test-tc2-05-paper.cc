@@ -185,6 +185,7 @@ main(int argc, char* argv[])
     // 创建仿真辅助对象，传入仿真名称和时间
     hb::StarSimHelperTc201 simHelper("test-tc2-05", Seconds(0), Seconds(sim_time));
     simHelper.SetTransportProtocol(transport);
+    simHelper.ConfigTransport();
     // 配置星型拓扑结构
     simHelper.ConfigTopology(numSpokes,
                              numReceivers,

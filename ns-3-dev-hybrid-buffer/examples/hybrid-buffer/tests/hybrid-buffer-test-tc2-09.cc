@@ -45,6 +45,7 @@
 #include "ns3/traffic-control-module.h"
 #include <exception>
 #include <fstream>
+#include <cstdlib>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -181,6 +182,7 @@ main(int argc, char* argv[])
     uint64_t if_change_threshold = 0;
     std::string algorithm_name = "BMS";
     std::string transport = "udp";  // 默认 TCP
+    bool enableCustomOutput = true;    //是否打印调试输出  默认是不输出
     std::string trafficGenDir;
     // 1：WebSearch；0：Hadoop
     //isWeb：
@@ -206,7 +208,14 @@ main(int argc, char* argv[])
                  trafficGenDir);
     cmd.AddValue("transport","传输协议：tcp 或 udp",
                 transport);
+    cmd.AddValue("enable_custom_output",
+             "Enable custom TCP/MMU/RED/P2P output",
+             enableCustomOutput);
     cmd.Parse(argc, argv);
+    ::setenv("NS3_CUSTOM_OUTPUT",
+         enableCustomOutput ? "1" : "0",
+         1);
+
     std::cout << "DeepHIR阈值：" << Deephir_threshold << std::endl;
     std::cout << "算法名称：" << algorithm_name << std::endl;
     std::cout << "IsWeb：" << isWeb << std::endl;
@@ -227,6 +236,7 @@ main(int argc, char* argv[])
     Time sendLinkDelay = MicroSeconds(1);
     hb::StarSimHelperTc202 simHelper("test-tc2-09", Seconds(0), Seconds(sim_time));
     simHelper.SetTransportProtocol(transport);
+    simHelper.ConfigTransport();
     simHelper.ConfigTopology(
         numSpokes,
         numReceivers,

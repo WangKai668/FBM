@@ -1788,7 +1788,7 @@ SwitchMmu::Store(Ptr<Packet> packet, SwitchMmu::BmResult location) // 紧接上�
           << ",priority=" << priority
           << ",queue=" << qIndex
           << ",bytes=" << m_qUsed[port][priority][qIndex]
-          << std::endl;
+          << std::endl;        
     }
     m_qTotalRcvd[port][priority][qIndex] += psize;
     if (m_qUsed[port][priority][qIndex] >

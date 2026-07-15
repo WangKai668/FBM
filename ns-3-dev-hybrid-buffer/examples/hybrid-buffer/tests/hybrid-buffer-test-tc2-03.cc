@@ -174,6 +174,7 @@ main(int argc, char* argv[])
     uint64_t if_change_threshold = 0;
     std::string algorithm_name = "BMS";
     std::string transport = "tcp";  // 默认 TCP
+    bool enableCustomOutput = false;    //是否打印调试输出  默认是不输出
     std::string trafficGenDir;
     int isWeb = 1;
     int isIncast = 1;
@@ -190,7 +191,13 @@ main(int argc, char* argv[])
     // cmd.AddValue("flow_rate", "流量速率", flow_rate);
     std::cout << "传输协议：" << transport << std::endl;
     std::cout << "是否读取到了" << Deephir_threshold << std::endl;
+    cmd.AddValue("enable_custom_output",
+             "Enable custom TCP/MMU/RED/P2P output",
+             enableCustomOutput);
     cmd.Parse(argc, argv);
+    ::setenv("NS3_CUSTOM_OUTPUT",
+         enableCustomOutput ? "1" : "0",
+         1);
     // CommandLine cmd(__FILE__);
     // cmd.Parse(argc, argv);
 
@@ -224,6 +231,7 @@ main(int argc, char* argv[])
     hb::StarSimHelperTc202 simHelper("test-tc2-03", Seconds(0), Seconds(sim_time));
     
     simHelper.SetTransportProtocol(transport);
+    simHelper.ConfigTransport();
     simHelper.ConfigTopology(numSpokes,
                              numReceivers,
                              recvLinkCapacity,
