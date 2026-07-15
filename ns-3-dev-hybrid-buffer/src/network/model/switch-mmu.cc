@@ -973,7 +973,9 @@ SwitchMmu::CheckDeepHirBmAlgorithm(Ptr<Packet> packet) // 该函数用于检查�
             cout << "Time:" << Simulator::Now() << " packet:" << packet->GetUid() << " 端口:" << port << " 丢包原因:DRAM剩余空间不足"<< " dramRemain/pktSize:"<< dramRemain << "/" << pktSize<< endl;
         }
     }
-    if (print_flag == 1)
+    double cycleTime =(Simulator::Now() - simulation_start[port][priority][qIndex]).GetNanoSeconds();  // 当前周期已经经过的实际时间
+
+    if (print_flag == 1 && port < 6 && cycleTime >= 10*1e3) // 每个10us打印一次
     {
         // 当前队列总占用
         const uint64_t qiBytes = qlen;
@@ -984,7 +986,7 @@ SwitchMmu::CheckDeepHirBmAlgorithm(Ptr<Packet> packet) // 该函数用于检查�
         const bool isMixed = (qiSBytes > 0 && qiDBytes > 0);
         const double arrivalRateActual = 0.0;
         const double ewmaRate = 0.0;
-        const uint64_t dropReal = (bmResult == BmResult(DROP)) ? 1 : 0;
+        // const uint64_t dropReal = (bmResult == BmResult(DROP)) ? 1 : 0;
         const uint64_t totalArrival = 1;
         uint32_t storeDecision = 0;
 
@@ -997,9 +999,8 @@ SwitchMmu::CheckDeepHirBmAlgorithm(Ptr<Packet> packet) // 该函数用于检查�
             storeDecision = 0;
         }
 
-        cout << endl;
-        cout << "--------------------------------------------------------------------------"<< endl;
-        cout << "DebugDeepHir: "
+        cout << endl << "--------------------------------------------------------------------------"<< endl;
+        cout << "DebugFBM: "
              << " time: " << Simulator::Now().GetNanoSeconds()<< " port: " << port
              << " periodSeq: " << 0<< " T: " << 0
              << " newT: " << 0<< " Decision(0片外,1片内): " << storeDecision << " bmResult(2丢包): " << bmResult
@@ -1016,9 +1017,11 @@ SwitchMmu::CheckDeepHirBmAlgorithm(Ptr<Packet> packet) // 该函数用于检查�
              << " U_1d: " << 0<< " U_2d: " << 0<< endl;
         cout << " (4) T_Calculation: " << " deltaU: " << 0<< " MD: " << 0
              << " U1Ss: " << 0<< " U1Ds: " << 0<< " U2Ss: " << 0<< " U2Ds: " << 0
-             << " U_Sstar: " << 0 << " U_Dstar: " << 0  << " drop_real/total_arrival: "<< dropReal << "/" << totalArrival<< endl;
+             << " U_Sstar: " << 0 << " U_Dstar: " << 0  << " drop_real/total_arrival: "<< drop_real_per_period[port][priority][qIndex] << "/" << totalArrival<< endl;
         cout << " (5) DecisionStates: " << " perPktDecisionFlag: " << 0<< " perPktDecisionCount: " << 0<< endl;
         cout << "--------------------------------------------------------------------------" << endl << endl;
+        simulation_start[port][priority][qIndex] = Simulator::Now(); // 重置周期开始时间
+        drop_real_per_period[port][priority][qIndex] = 0;
     }
     return bmResult;
 }
@@ -1335,7 +1338,7 @@ SwitchMmu::BmResult SwitchMmu::Check3DTBmAlgorithm(Ptr<Packet> packet) { // FBMM
     //****************** 第一个周期或第N(N>1)个周期末要更新的状态 ******************/
     if ((cycleTime > 2*RTT && qlen == 0) || T_seq[port][priority][qIndex] <= 1 ||
         (T_seq[port][priority][qIndex] > 1 && cycleTime >= m_Cost_ETC[port][priority][qIndex].GetNanoSeconds())){ 
-        if (print_flag == 1){
+        if (print_flag == 1 && port<6){
             cout << endl<< "--------------------------------------------------------------------------------"<<endl;
             cout << "DebugFBM: " << " time:" << Simulator::Now().GetNanoSeconds() 
                 << " port:" << port << " periodSeq: " << T_seq[port][priority][qIndex] 
@@ -1788,7 +1791,7 @@ SwitchMmu::Store(Ptr<Packet> packet, SwitchMmu::BmResult location) // 紧接上�
           << ",priority=" << priority
           << ",queue=" << qIndex
           << ",bytes=" << m_qUsed[port][priority][qIndex]
-          << std::endl;        
+          << std::endl;
     }
     m_qTotalRcvd[port][priority][qIndex] += psize;
     if (m_qUsed[port][priority][qIndex] >
@@ -1893,11 +1896,11 @@ SwitchMmu::Fetch(Ptr<Packet> packet)
              packet->GetLocation() == Packet::WCACHE)
     {
         ReadDram_Size_Total += psize;
-        if (packet->GetLocation() == Packet::WCACHE)
-            cout << "时间：" << Simulator::Now().GetSeconds() << "," << "位置：wcache" << endl;
-        if (packet->GetLocation() == Packet::WRITINGTOOFFCHIPBUFFER)
-            cout << "时间：" << Simulator::Now().GetSeconds() << "," << "位置：部分wcache部分Dram"
-                 << endl;
+        // if (packet->GetLocation() == Packet::WCACHE)
+            // cout << "时间：" << Simulator::Now().GetSeconds() << "," << "位置：wcache" << endl;
+        // if (packet->GetLocation() == Packet::WRITINGTOOFFCHIPBUFFER)
+            // cout << "时间：" << Simulator::Now().GetSeconds() << "," << "位置：部分wcache部分Dram"
+            //      << endl;
         // The packet is in the OffChipBuffer(WCache or HBM).
         return m_offChipBuffer->Read(packet); // 调用m_offChipBuffer->Read(packet)函数处理数据包读取
     }

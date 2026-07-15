@@ -50,6 +50,8 @@ TraceRedQueue(uint32_t port,
               << ",old_bytes=" << oldBytes
               << ",bytes=" << newBytes
               << std::endl;
+    }
+
 }
 //重写这个函数
 void
@@ -74,7 +76,6 @@ StarSimHelper::SetTransportProtocol(const std::string& protocol)
               << (IsTcpTransport() ? "TCP" : "UDP")
               << std::endl;
 }
-
 
 void
 StarSimHelper::ConfigTransport(std::string socketType,
@@ -784,9 +785,7 @@ StarSimHelper::TraceMmu()
     }
 }
 
-void
-StarSimHelper::TraceOffChipBuffer()
-{
+void StarSimHelper::TraceOffChipBuffer(){
     NS_LOG_FUNCTION(this);
     if (m_enableSramThroughputTracing) {
         AsciiTraceHelper ascii;

@@ -131,7 +131,7 @@ StarSimHelperTc202::SetupRouterPacketFilter()
                                             0xffff,
                                             0,
                                             0xffff,
-                                            priCls[sid - m_nReceivers]);
+                                            0); //priCls[sid - m_nReceivers]);
             }
         }
         rootQdisc->AddPacketFilter(rootFilter);
@@ -157,7 +157,7 @@ StarSimHelperTc202::SetupRouterPacketFilter()
                                               0xffff,
                                               0,
                                               0xffff,
-                                              qCls[sid - m_nReceivers]);
+                                              0);//qCls[sid - m_nReceivers]);
                 }
             }
             l2Qdisc->AddPacketFilter(l2Filter);
@@ -198,7 +198,7 @@ main(int argc, char* argv[])
     // CommandLine cmd(__FILE__);
     // cmd.Parse(argc, argv);
 
-    uint32_t numSpokes = 12;   // 8
+    uint32_t numSpokes = 35;   // 8
     uint32_t numReceivers = 6; // 4
     double sim_time = 0.2;
     DataRate recvLinkCapacity = DataRate("100Gbps");
@@ -221,7 +221,7 @@ main(int argc, char* argv[])
     std::string rate2 = std::to_string(sendRate2) + "Gbps";
 
     double interval = 0.0010;
-    double lastTime = 0.0005;
+    double lastTime = 0.0001;
     double nowT = 0.0;
 
     // /*原来的*/{
@@ -283,7 +283,7 @@ main(int argc, char* argv[])
                         //                     Seconds(nowT + lastTime),
                         //                     DataRate("100Gbps"));
 
-                        simHelper.AddFlow(6,
+                        simHelper.AddFlow(30,
                                         0,
                                         Seconds(nowT),
                                         Seconds(nowT + lastTime),
@@ -338,16 +338,16 @@ main(int argc, char* argv[])
         Config::SetDefault("ns3::SwitchMmu::now_algorithm_name", StringValue("BMS"));
     }
 
-    simHelper.EnableHbmThroughputTracing();
-    simHelper.EnableBufferUsageTracing();
-    simHelper.EnableBmResultTracing();
-    simHelper.EnablePortThroughputTracing();
-    simHelper.EnableQueueThroughputTracing();
-    simHelper.EnableWCacheThroughputTracing();
-    simHelper.EnableSramThroughputTracing();
-    simHelper.EnableQueueWCacheTracing();
-    simHelper.EnableQueueSramTracing();
-    simHelper.EnableQueueHbmTracing();
+    // simHelper.EnableHbmThroughputTracing();
+    // simHelper.EnableBufferUsageTracing();
+    // simHelper.EnableBmResultTracing();
+    // simHelper.EnablePortThroughputTracing();
+    // simHelper.EnableQueueThroughputTracing();
+    // simHelper.EnableWCacheThroughputTracing();
+    // simHelper.EnableSramThroughputTracing();
+    // simHelper.EnableQueueWCacheTracing();
+    // simHelper.EnableQueueSramTracing();
+    // simHelper.EnableQueueHbmTracing();
 
     simHelper.Run();
 
