@@ -52,7 +52,7 @@ TraceRedQueue(uint32_t port,
               << std::endl;
     }
 
-}
+
 //重写这个函数
 void
 StarSimHelper::SetTransportProtocol(const std::string& protocol)
@@ -454,6 +454,7 @@ StarSimHelper::SetupRouterQueueDisc()
                     lpQdisc->AddQueueDiscClass(leafCls);
                 }else{
                     //创建UDP
+                    //std::cout<<"创建UDP2  --sj"<< std::endl;
                     Ptr<FifoQueueDisc> fifoQdisc = m_routerFifoQdiscFactory.Create<FifoQueueDisc>();
                     Ptr<DrrFlow> leafCls = CreateObject<DrrFlow>();
                     leafCls->SetQuantum(quantums[cs]);
