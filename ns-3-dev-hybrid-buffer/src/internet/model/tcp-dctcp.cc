@@ -17,7 +17,9 @@
  * Author: Shravya K.S. <shravya.ks0@gmail.com>
  *
  */
-
+#include <cstdlib>
+#include <cstring>
+#include <iostream>
 #include "tcp-dctcp.h"
 
 #include "ns3/abort.h"
@@ -28,7 +30,25 @@
 // 在文件开头添加必要的头文件
 #include "ns3/tcp-socket-base.h"
 #include "ns3/inet-socket-address.h"
+namespace
+{
 
+bool
+CustomOutputEnabled()
+{
+    static const bool enabled = []() {
+        const char* value = std::getenv("NS3_CUSTOM_OUTPUT");
+
+        if (value == nullptr)
+        { return false;}
+
+        return std::strcmp(value, "1") == 0 ||std::strcmp(value, "true") == 0 || std::strcmp(value, "TRUE") == 0;
+    }();
+
+    return enabled;
+}
+
+} // namespace
 
 namespace ns3
 {
@@ -163,6 +183,7 @@ TcpDctcp::PktsAcked(Ptr<TcpSocketState> tcb, uint32_t segmentsAcked, const Time&
         double oldAlpha = m_alpha;
         m_alpha = (1.0 - m_g) * m_alpha + m_g * bytesEcn;
         m_traceCongestionEstimate(m_ackedBytesEcn, m_ackedBytesTotal,m_alpha);
+        if (CustomOutputEnabled()){
         std::cout << "DCTCP_ALPHA"
                 << ",time_s=" << Simulator::Now().GetSeconds()
                 << ",conn=" << this       //区别不同的tcp连接
@@ -174,19 +195,13 @@ TcpDctcp::PktsAcked(Ptr<TcpSocketState> tcb, uint32_t segmentsAcked, const Time&
                 << ",new_alpha=" << m_alpha
                 << ",cwnd_bytes=" << tcb->m_cWnd
                 << ",ssthresh_bytes=" << tcb->m_ssThresh
-                << std::endl;
-
+                << std::endl;                
+        }
+    
         Reset(tcb);
     }
-    // 打印TCP状态
-    // std::cout<< "TCP State - " << Simulator::Now().GetSeconds()<<
-    //             " CWND: " << tcb->m_cWnd << " bytes, " <<
-    //             "SSTHRESH: " << tcb->m_ssThresh << " bytes, " <<
-    //             "RTT: " << rtt.GetMilliSeconds() << " ms, " <<
-    //             "ECN-State: " << TcpSocketState::EcnStateName[tcb->m_ecnState] << ", " <<
-    //             "InFlight: " << tcb->m_bytesInFlight << " bytes, " <<
-    //             "CongState: " << TcpSocketState::TcpCongStateName[tcb->m_congState]<<" segment-size: "<<tcb->m_segmentSize<<std::endl;
-    std::cout << "TCP_STATE"
+        if (CustomOutputEnabled()){
+            std::cout << "TCP_STATE"
             << ",time_s=" << Simulator::Now().GetSeconds()
             << ",conn=" << this
             << ",algorithm=TcpDctcp"
@@ -200,7 +215,8 @@ TcpDctcp::PktsAcked(Ptr<TcpSocketState> tcb, uint32_t segmentsAcked, const Time&
             << TcpSocketState::EcnStateName[tcb->m_ecnState]
             << ",cong_state="
             << TcpSocketState::TcpCongStateName[tcb->m_congState]
-            << std::endl;
+            << std::endl;            
+        }
 }
 
 void

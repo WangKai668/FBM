@@ -168,14 +168,20 @@ main(int argc, char* argv[])
     uint64_t if_change_threshold = 0;
     std::string algorithm_name = "BMS";
     std::string transport = "tcp";  // 默认 TCP
+    bool enableCustomOutput = false;    //是否打印调试输出  默认是不输出
     cmd.AddValue("Deephir_threshold", "deephir阈值", Deephir_threshold);
     cmd.AddValue("if_change_threshold", "是否改变DT阈值", if_change_threshold);
     cmd.AddValue("algorithm_name", "算法名", algorithm_name);
     cmd.AddValue("transport","传输协议：tcp 或 udp",
                 transport);
     // cmd.AddValue("IsWeb", "真实流量跑Websearch还是hadoop?", isWeb);
-
+    cmd.AddValue("enable_custom_output",
+             "Enable custom TCP/MMU/RED/P2P output",
+             enableCustomOutput);
     cmd.Parse(argc, argv);
+    ::setenv("NS3_CUSTOM_OUTPUT",
+         enableCustomOutput ? "1" : "0",
+         1);
 
 
     uint32_t numSpokes = 13;
@@ -213,6 +219,7 @@ main(int argc, char* argv[])
 
     hb::StarSimHelperTc202 simHelper("test-tc2-05", Seconds(0), Seconds(sim_time));
     simHelper.SetTransportProtocol(transport);
+    simHelper.ConfigTransport();
     simHelper.ConfigTopology(numSpokes,
                             numReceivers,
                             recvLinkCapacity,

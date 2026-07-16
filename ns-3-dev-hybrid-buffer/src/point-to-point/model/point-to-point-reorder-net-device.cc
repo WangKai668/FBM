@@ -18,7 +18,8 @@
  */
 
 #include "point-to-point-reorder-net-device.h"
-
+#include <cstdlib>
+#include <cstring>
 #include "point-to-point-channel.h"
 #include "ppp-header.h"
 
@@ -31,6 +32,24 @@
 #include "ns3/simulator.h"
 #include "ns3/trace-source-accessor.h"
 #include "ns3/uinteger.h"
+namespace
+{
+
+bool
+CustomOutputEnabled()
+{
+    // 每个源文件只读取一次环境变量，不会在每个数据包到达时重复读取
+    static const bool enabled = []() {
+        const char* value = std::getenv("NS3_CUSTOM_OUTPUT");
+        if (value == nullptr)
+        { return false;}
+        return std::strcmp(value, "1") == 0 || std::strcmp(value, "true") == 0 ||std::strcmp(value, "TRUE") == 0;
+    }();
+
+    return enabled;
+}
+
+} // namespace
 
 namespace ns3
 {
@@ -135,15 +154,16 @@ PointToPointReorderNetDevice::Send(Ptr<Packet> packet, const Address& dest, uint
         // Fetch the packet from mmu
         if (m_mmu)
         {
-            //--sj TCP输出添加
-            if(flag_print == 1){
-            std::cout << "P2P_REORDER_QUEUE"
-              << ",time_s=" << Simulator::Now().GetSeconds()
-              << ",port=" << packet->GetMmuUsedPort()
-              << ",bytes=" << m_queue->GetNBytes()
-              << ",packets=" << m_queue->GetNPackets()
-              << std::endl;
+            if (CustomOutputEnabled()){
+                //--sj TCP输出添加
+                std::cout << "P2P_REORDER_QUEUE"
+                << ",time_s=" << Simulator::Now().GetSeconds()
+                << ",port=" << packet->GetMmuUsedPort()
+                << ",bytes=" << m_queue->GetNBytes()
+                << ",packets=" << m_queue->GetNPackets()
+                << std::endl;                
             }
+
             NS_LOG_LOGIC("Fetch the packet from mmu");
             if (m_mmu->Fetch(packet))
             {
@@ -178,8 +198,7 @@ PointToPointReorderNetDevice::AttemptTransmission()
 
         packet = m_queue->Dequeue();
         // --sj TCP添加
-        if(flag_print == 1){
-            if (m_mmu && packet)
+            if (m_mmu && packet && CustomOutputEnabled() )  
             {
                 std::cout << "P2P_REORDER_QUEUE"
                         << ",time_s=" << Simulator::Now().GetSeconds()
@@ -187,9 +206,8 @@ PointToPointReorderNetDevice::AttemptTransmission()
                         << ",bytes=" << m_queue->GetNBytes()
                         << ",packets=" << m_queue->GetNPackets()
                         << std::endl;
-            }            
-        }
-
+            }   
+            
         m_snifferTrace(packet);
         m_promiscSnifferTrace(packet);
         NS_LOG_LOGIC("Send the packet " << packet << "(UID=" << packet->GetUid() << ")");

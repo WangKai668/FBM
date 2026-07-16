@@ -1,11 +1,29 @@
 #include "star-sim-helper.h"
-
+#include <cstdlib>
+#include <cstring>
 #include "ns3/internet-stack-helper.h"
 #include "ns3/ipv4-header.h"
 #include "ns3/tcp-header.h"
 #include "ns3/udp-header.h"
 #include "ns3/flow-monitor-helper.h"
 #include "ns3/flow-monitor-module.h"
+namespace
+{
+
+bool
+CustomOutputEnabled()
+{
+    // 每个源文件只读取一次环境变量，不会在每个数据包到达时重复读取
+    static const bool enabled = []() {
+        const char* value = std::getenv("NS3_CUSTOM_OUTPUT");
+        if (value == nullptr)
+        {return false;}
+
+        return std::strcmp(value, "1") == 0 ||std::strcmp(value, "true") == 0 ||std::strcmp(value, "TRUE") == 0;
+    }();
+    return enabled;
+}
+} // namespace
 
 namespace ns3
 {
@@ -15,16 +33,16 @@ namespace hb
 
 NS_LOG_COMPONENT_DEFINE("StarSimHelper");
 
-static void   //  --sj
+static void   //--sj
 TraceRedQueue(uint32_t port,
               uint32_t priority,
               uint32_t queueId,
               uint64_t oldBytes,
               uint64_t newBytes)
 {
-    bool print_flag_star = 0;
-    if(print_flag_star == 1){
-         std::cout << "RED_QDISC_QUEUE"
+    if (!CustomOutputEnabled())
+    {return;}
+    std::cout << "RED_QDISC_QUEUE"
               << ",time_s=" << Simulator::Now().GetSeconds()
               << ",port=" << port
               << ",priority=" << priority
@@ -34,7 +52,7 @@ TraceRedQueue(uint32_t port,
               << std::endl;
     }
 
-}
+
 //重写这个函数
 void
 StarSimHelper::SetTransportProtocol(const std::string& protocol)
@@ -436,6 +454,7 @@ StarSimHelper::SetupRouterQueueDisc()
                     lpQdisc->AddQueueDiscClass(leafCls);
                 }else{
                     //创建UDP
+                    //std::cout<<"创建UDP2  --sj"<< std::endl;
                     Ptr<FifoQueueDisc> fifoQdisc = m_routerFifoQdiscFactory.Create<FifoQueueDisc>();
                     Ptr<DrrFlow> leafCls = CreateObject<DrrFlow>();
                     leafCls->SetQuantum(quantums[cs]);

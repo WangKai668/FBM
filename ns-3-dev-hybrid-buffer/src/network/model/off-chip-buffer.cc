@@ -988,9 +988,10 @@ OffChipBuffer::SendWriteRequestStart(Ptr<Packet> packet)
     NS_LOG_DEBUG("\tWcache Size:: " << m_wcacheSize << " usedWcacheSize:: " << m_wcacheUsed
                                     << " psize: " << psize);
     // WCache-Overflow ASSERT.
-    NS_ASSERT_MSG((m_wcacheSize - m_wcacheUsed) > psize,
-                  "The Packet Size should be smaller"
-                  "than the Remained wcache Size!");//检查wcache是否有足够的空间来存储该数据包，如果不够会触发断言错误
+    NS_ASSERT_MSG(
+        m_wcacheUsed <= m_wcacheSize &&
+            psize <= (m_wcacheSize - m_wcacheUsed),
+        "Packet size exceeds the remaining wcache space!");
 
     // Write in the wcache First.
     // First, Modify some Wcache counters.

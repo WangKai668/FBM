@@ -1179,6 +1179,124 @@ def test8_plot(id,name):
     plt.clf()
 
 
+def test8_new_plot(testcase_number, testcase_name):
+
+    final_font_size = 30
+    # 新实验的自变量：500Gbps背景流持续时间，单位us
+    change_times_us = [2, 4, 8, 16, 32, 64]
+    # DeepHiR静态阈值
+    thresholds = [0.2, 0.5, 1.0, 2.0, 4.0]
+    markers_bms = ['o', 'v', '^', 's', '*']
+    colors_bms = ['green', 'blue', 'purple', 'k', 'orange']
+    legend_labels = [
+        "DeepHiR-0.2M",
+        "DeepHiR-0.5M",
+        "DeepHiR-1M",
+        "DeepHiR-2M",
+        "DeepHiR-4M",
+        "FBM"
+    ]
+
+    fig, ax = plt.subplots(dpi=600,  figsize=(12, 6))
+    lines = []
+
+    bms_path_prefix = os.path.join( data_dir, "BMS", testcase_number )
+
+    for index, threshold in enumerate(thresholds):
+        loss_values = []
+        for change_time_us in change_times_us:
+            file_path = os.path.join(
+                bms_path_prefix,
+                f"{threshold}M",
+                f"{change_time_us}us",
+                "loss_packet.csv"
+            )
+
+            if not os.path.isfile(file_path):
+                raise FileNotFoundError(
+                    f"未找到DeepHiR丢包文件：{file_path}"
+                )
+
+            loss_num = float(get_last_field(file_path))
+            loss_values.append(loss_num)
+
+        line, = ax.plot(
+            change_times_us,
+            loss_values,
+            marker=markers_bms[index],
+            linestyle='-',
+            color=colors_bms[index],
+            linewidth=linewidth_middle + 2,
+            markersize=10
+        )
+
+        lines.append(line)
+
+    pbs_path_prefix = os.path.join(  data_dir, "pbs", testcase_number )
+
+    pbs_loss_values = []
+
+    for change_time_us in change_times_us:
+        file_path = os.path.join(
+            pbs_path_prefix,
+            f"{change_time_us}us",
+            "loss_packet.csv"
+        )
+        if not os.path.isfile(file_path):
+            raise FileNotFoundError(
+                f"未找到FBM丢包文件：{file_path}"
+            )
+
+        loss_num = float(get_last_field(file_path))
+        pbs_loss_values.append(loss_num)
+
+    line, = ax.plot(
+        change_times_us,
+        pbs_loss_values,
+        marker='>',
+        linestyle='-',
+        color='r',
+        linewidth=linewidth_middle + 2,
+        markersize=10
+    )
+    lines.append(line)
+    ax.set_xlabel("High-rate Background Duration x (μs)", fontsize=final_font_size)
+    ax.set_ylabel("# of Packet Loss",fontsize=final_font_size)
+
+    # 明确设置横轴刻度
+    ax.set_xticks(change_times_us)
+
+    ax.tick_params( axis='x',labelsize=final_font_size)
+    ax.tick_params(axis='y', labelsize=final_font_size)
+
+    legend = ax.legend(
+        bbox_to_anchor=(-0.02, 1.001),
+        loc=3,
+        columnspacing=0.5,
+        borderaxespad=0,
+        handles=lines,
+        labels=legend_labels,
+        ncol=3,
+        fontsize=final_font_size,
+        handlelength=1.5,
+        handletextpad=0.1
+    )
+    legend.get_frame().set_linewidth(0)
+
+    output_dir = os.path.join(save_path,"compare", testcase_number )
+    os.makedirs(output_dir, exist_ok=True)
+    output_path = os.path.join(
+        output_dir,
+        "adaptability-to-background-duration-compare-new.pdf"
+    )
+    fig.savefig(
+        output_path,
+        bbox_inches='tight'
+    )
+    plt.close(fig)
+    print(f"图片已保存：{output_path}")
+
+
 ################################################################################################################################################
 def test9_plot():
     # Deephir
@@ -2032,6 +2150,11 @@ else:
             # Dr_Sr_Q_plot(testcase_number,rate)
             # queue_write_read_throughput_plot(testcase_number,testcase_name,rate)
             queue_usage_plot(testcase_number,testcase_name,rate)
+    elif testcase_number == 'tc2-08-new':
+        # 新场景8
+        test8_new_plot( testcase_number, testcase_name )
+        for change_time_dir in ["2us","4us","8us","16us","32us","64us"]:
+            queue_usage_plot(testcase_number,testcase_name,change_time_dir)
 
     elif testcase_number == 'tc2-09':
         test9_plot()

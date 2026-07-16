@@ -179,6 +179,7 @@ main(int argc, char* argv[])
 
     hb::StarSimHelperTc201 simHelper("test-tc2-08", Seconds(0), Seconds(sim_time));
     simHelper.SetTransportProtocol(transport);
+    simHelper.ConfigTransport();
     simHelper.ConfigTopology(numSpokes,
                              numReceivers,
                              recvLinkCapacity,

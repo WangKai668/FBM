@@ -88,7 +88,7 @@ TcpPrrRecovery::DoRecovery(Ptr<TcpSocketState> tcb, uint32_t deliveredBytes)
 {
     NS_LOG_FUNCTION(this << tcb << deliveredBytes);
     m_prrDelivered += deliveredBytes;
-    std::cout<<"debugwkRecovery-tcp-prr-recovery"<<std::endl;
+    //std::cout<<"debugwkRecovery-tcp-prr-recovery"<<std::endl;
 
     int sendCount;
     if (tcb->m_bytesInFlight > tcb->m_ssThresh)
