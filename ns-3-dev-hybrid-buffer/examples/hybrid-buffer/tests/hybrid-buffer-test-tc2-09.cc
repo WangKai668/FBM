@@ -225,8 +225,8 @@ main(int argc, char* argv[])
         std::cerr<< "请检查run-tests.sh是否传入：" << "--traffic_gen_dir=$TRAFFIC_GEN_DIR" << std::endl;
         return 1;
     }
-    uint32_t numSpokes = 30;
-    uint32_t numReceivers = 6;
+    uint32_t numSpokes = 16;
+    uint32_t numReceivers = 8;
     double sim_time = 0.2;
     DataRate recvLinkCapacity = DataRate("100Gbps");
     Time recvLinkDelay = MicroSeconds(1);
@@ -305,27 +305,6 @@ main(int argc, char* argv[])
             double stopTime =std::stod(words.at(3)) - 2;
             std::string dataRateString = words.at(4);
 
-            if (isIncast){
-                while (nowT + interval < std::stod(words.at(2)) - 2)  {
-                    // 每隔1ms打一轮突发，突发持续0.5ms  //100Gbps * 1ms = 12.5MB   100Gbps*0.5ms=6.25MB   100Gbps*0.1ms=1.25MB    300Gbps*0.1ms=3.75MB
-                    // for (int k = numSpokes-5; k < numSpokes; k++) 
-                    //     simHelper.AddFlow((uint32_t)k,
-                    //                     0,
-                    //                     Seconds(nowT),
-                    //                     Seconds(nowT + lastTime),
-                    //                     DataRate("100Gbps"));
-
-                    simHelper.AddFlow(30,
-                                    0,
-                                    Seconds(nowT),
-                                    Seconds(nowT + lastTime),
-                                    DataRate("300Gbps"));
-                    nowT += interval;
-                    cout << "流量大小Incast：" << (lastTime) * 300 * 1e9 / 8 / 1e6 << "kB " << 6
-                        << "到" << 0 << " " << Seconds(nowT) << "到" << Seconds(nowT + lastTime)
-                        << " " << DataRate(words.at(4)) << endl;
-                }
-            }
             simHelper.AddFlow(
                 static_cast<uint32_t>(srcNode),
                 static_cast<uint32_t>(dstNode),

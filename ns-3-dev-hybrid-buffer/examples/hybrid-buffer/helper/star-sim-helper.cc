@@ -116,18 +116,18 @@ StarSimHelper::StarSimHelper(std::string simName, Time start, Time stop)
     // m_routerRedQdisFatory.Set("MinTh", DoubleValue(480));         // ECN 标记阈值（包数）
     // m_routerRedQdisFatory.Set("MaxTh", DoubleValue(480));         // 固定阈值（DCTCP 风格）
     // m_routerRedQdisFatory.Set("QW", DoubleValue(1.0));           // 队列权重
-    const double ecnMinTh = 480;
-    const double ecnMaxTh = 480;
+    const double ecnMinTh = 120; // 480KB/4KB MTU=120pkts  //默认480pkts=720KB
+    const double ecnMaxTh = 120;
     m_routerRedQdisFatory.SetTypeId("ns3::RedQueueDisc");
     m_routerRedQdisFatory.Set("UseEcn", BooleanValue(true));
     m_routerRedQdisFatory.Set("UseHardDrop", BooleanValue(false));
-    m_routerRedQdisFatory.Set("MeanPktSize", UintegerValue(1500));
+    m_routerRedQdisFatory.Set("MeanPktSize", UintegerValue(4000)); //1500
     m_routerRedQdisFatory.Set("MaxSize", QueueSizeValue(QueueSize("100000000p")));
     m_routerRedQdisFatory.Set("QW", DoubleValue(1));
     m_routerRedQdisFatory.Set("MinTh", DoubleValue(ecnMinTh));
     m_routerRedQdisFatory.Set("MaxTh", DoubleValue(ecnMaxTh));
     m_routerRedQdisFatory.Set("LinkBandwidth", StringValue("100Gbps"));
-    m_routerRedQdisFatory.Set("LinkDelay", StringValue("1us"));
+    m_routerRedQdisFatory.Set("LinkDelay", StringValue("0.5us")); //1us
     
     // Config::SetDefault("ns3::RedQueueDisc::UseEcn", BooleanValue(true));
     // Config::SetDefault("ns3::RedQueueDisc::UseHardDrop", BooleanValue(false));
@@ -562,7 +562,7 @@ StarSimHelper::CreateTraffic()
 
     for (auto& flow : m_flows)
     {
-        std::cout<<"debugwk flow "<<flow.srcId<<" "<<flow.dstId<<" "<<flow.size<<" "<<flow.pktSize<<" "<<flow.rate<<" "<<flow.startTime<<" "<<flow.stopTime <<" "<<m_socketType<<std::endl;
+        std::cout<<"debugwk flow "<<flow.srcId<<" "<<flow.dstId<<" flowSize:"<<flow.size<<" pktSize:"<<(flow.pktSize ? flow.pktSize : TCPPAYLOAD_BYTES)<<" "<<flow.rate<<" "<<flow.startTime<<" "<<flow.stopTime <<" "<<m_socketType<<std::endl;
 
         NS_LOG_LOGIC(flow);
         uint16_t listenPort = baseListenPort + m_spokes.Get(flow.dstId)->GetNApplications();
@@ -577,7 +577,6 @@ StarSimHelper::CreateTraffic()
             PacketSinkHelper sinkHelper("ns3::TcpSocketFactory", sinkLocalAddress);
             sinkApp = sinkHelper.Install(m_spokes.Get(flow.dstId));
             uint32_t payload = flow.pktSize ? flow.pktSize : TCPPAYLOAD_BYTES;
-            
             BulkSendHelper tcpSendHelper("ns3::TcpSocketFactory", Address());
             tcpSendHelper.SetAttribute("Remote", recvAddress);
             tcpSendHelper.SetAttribute("SendSize", UintegerValue(payload));

@@ -176,7 +176,7 @@ main(int argc, char* argv[])
     std::string transport = "tcp";  // 默认 TCP
     bool enableCustomOutput = false;    //是否打印调试输出  默认是不输出
     std::string trafficGenDir;
-    int isWeb = 0;
+    int isWeb = 1;
     int isIncast = 1;
     cmd.AddValue("Deephir_threshold", "deephir阈值", Deephir_threshold);
     cmd.AddValue("if_change_threshold", "是否改变DT阈值", if_change_threshold);
@@ -202,13 +202,13 @@ main(int argc, char* argv[])
     // CommandLine cmd(__FILE__);
     // cmd.Parse(argc, argv);
 
-    uint32_t numSpokes = 35;   // 8
+    uint32_t numSpokes = 20;   // 8
     uint32_t numReceivers = 6; // 4
     double sim_time = 0.2;
     DataRate recvLinkCapacity = DataRate("100Gbps");
-    Time recvLinkDelay = MicroSeconds(5);
+    Time recvLinkDelay = MicroSeconds(20);
     DataRate sendLinkCapacity = DataRate("100Gbps"); // 1000Gbps
-    Time sendLinkDelay = MicroSeconds(5);
+    Time sendLinkDelay = MicroSeconds(20);
 
 
     Config::SetDefault("ns3::SwitchMmu::nextFilePath", StringValue("tc2-04/"));
@@ -242,7 +242,12 @@ main(int argc, char* argv[])
     
     simHelper.ConfigTransport("tcp", "ns3::TcpDctcp");
 
-    double interval = 0.0005;
+
+    double linkLoad = 0.2; // Incast负载  20%
+    double querySize = 0.2 * 4*1e6; // 总Incast数据量 20%bufferSize = 0.8MB
+    double busrtSize = querySize / (numSpokes-numReceivers);    // 每个发送端每轮发出的数据量 20%*4MB/SenderNums = 0.8MB/6= 133KB  
+    double intervalperReceiver = querySize / 100 * 8 / linkLoad; // 该端口排空这些数据需要0.8MB/100Gbps=64us， 所以20%的负载要64us/20% = 320us发一轮
+    double interval = intervalperReceiver / numReceivers; //     // 上述是针对一个端口（接收端），实际上每个接收端都要20%的负载， 那么总体间隔就是要320us/ReceiverNums=320us/6=53.33us
     double nowT = 0.0;
 
     std::string file;

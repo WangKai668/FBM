@@ -57,7 +57,7 @@ if __name__ == "__main__":
 	# fakeArgs=['-c','cdfW1.txt','-n',320,'-l',0.3,'-b','100G','-t',0.1]
 
 	# -c FbHdp_distribution.txt -n 30 -l 0.8 -t 0.02 -b 100G
-	# websearched -n 30 -t 0.02 -l 0.6 -b 100G  
+	# websearched -n 64 -t 0.02 -l 0.9 -b 100G  
 
 	myArgs=input("请输入参数：")
 	myArgs=myArgs.split(" ")
@@ -70,7 +70,7 @@ if __name__ == "__main__":
 		sys.exit(0)
 
 	nhost = int(options.nhost)
-	receiver = 6  # 手动指定接收端数目
+	receiver = 12  # 手动指定接收端数目
 	load = float(options.load)
 	bandwidth = translate_bandwidth(options.bandwidth)
 	time = float(options.time)*1e9 # translates to ns
