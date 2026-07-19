@@ -100,8 +100,8 @@ SimHelper::ConfigTransport(std::string socketType, std::string ccType)
     // TCP RTO timeout when opening connection
     Config::SetDefault("ns3::TcpSocket::ConnTimeout", TimeValue(MilliSeconds(5))); //default 5
     Config::SetDefault("ns3::TcpSocketBase::MinRto", TimeValue(MilliSeconds(5))); //default 5
-    Config::SetDefault("ns3::TcpSocket::InitialCwnd", UintegerValue(167)); //wk  default 10   100Gbps*32us = 400KB   这里的单位是包数，不是字节数  1000KB=667pkts
-    Config::SetDefault("ns3::TcpSocket::InitialSlowStartThreshold", UintegerValue(167)); //wk  default MaxUint32     这里的单位是包数，不是字节数
+    Config::SetDefault("ns3::TcpSocket::InitialCwnd", UintegerValue(7)); //wk  default 10   100Gbps*32us = 400KB   这里的单位是包数，不是字节数  1000KB=667pkts
+    Config::SetDefault("ns3::TcpSocket::InitialSlowStartThreshold", UintegerValue(7)); //wk  default MaxUint32     这里的单位是包数，不是字节数
     // Clock Granularity used in RTO calculations
     Config::SetDefault("ns3::TcpSocketBase::ClockGranularity", TimeValue(MicroSeconds(1)));
     Config::SetDefault("ns3::TcpSocketState::MaxPacingRate", StringValue("100Gbps")); // default 400Gbps

@@ -164,6 +164,7 @@ TcpDctcp::PktsAcked(Ptr<TcpSocketState> tcb, uint32_t segmentsAcked, const Time&
 {
     NS_LOG_FUNCTION(this << tcb << segmentsAcked << rtt);
     m_ackedBytesTotal += segmentsAcked * tcb->m_segmentSize;
+
     if (tcb->m_ecnState == TcpSocketState::ECN_ECE_RCVD)
     {
         m_ackedBytesEcn += segmentsAcked * tcb->m_segmentSize;

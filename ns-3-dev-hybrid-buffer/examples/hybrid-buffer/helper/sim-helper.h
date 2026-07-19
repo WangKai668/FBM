@@ -33,7 +33,7 @@ class SimHelper : public Object
     virtual void Finish();
 
     // MTU size in bytes
-    static const uint32_t MTU_BYTES = 1480; //9600;//1480; //default 9600;
+    static const uint32_t MTU_BYTES = 4000; //9600;//1480; //default 9600;
     // Length of ppp header
     static const uint32_t PPPHDR_BYTES = 2;
     // Length of ip header

@@ -57,19 +57,15 @@ if __name__ == "__main__":
 
 	# fakeArgs=['-c','cdfW1.txt','-n',320,'-l',0.3,'-b','100G','-t',0.1]
 	# -c FbHdp_distribution.txt -n 30 -l 0.9 -t 0.004 -b 100G
-	# websearched -n 30 -t 0.004 -l 0.9 -b 100G
-
+	# websearched -n 64 -t 0.030 -l 0.8 -b 100G
 
 	myArgs=input("请输入参数：")
 	myArgs=myArgs.split(" ")
 
-	options,args = parser.parse_args(
-		# fakeArgs
-		myArgs
-		)
+	options,args = parser.parse_args(myArgs)
 
 	base_t = 2000000000
-	receiver = 6
+	receiver = 12
 
 	if not options.nhost:
 		print( "please use -n to enter number of hosts")
@@ -117,9 +113,7 @@ if __name__ == "__main__":
 	# 平均4个发送端打向1个接收端，因此单发送端的到达间隔放大4倍。
 	avg_inter_arrival = (1 / (bandwidth * load / 8.0 / avg)* 1e9* fan_in)
 
-	n_flow_estimate = int(
-		time / avg_inter_arrival * num_senders
-	)
+	n_flow_estimate = int(time / avg_inter_arrival * num_senders)
 
 	print(
 		"bandwidth:", bandwidth,
@@ -133,10 +127,7 @@ if __name__ == "__main__":
 	print("n_flow_estimate =", n_flow_estimate)
 
 	# 每个发送端的第一次流到达时间
-	host_list = [
-		(base_t + max(1, int(poisson(avg_inter_arrival))), src)
-		for src in range(receiver, nhost)
-	]
+	host_list = [(base_t + max(1, int(poisson(avg_inter_arrival))), src) for src in range(receiver, nhost)]
 
 	heapq.heapify(host_list)
 

@@ -56,8 +56,8 @@ def process_flow_data(input_file):
     df_sorted = df_sorted.drop(columns=['SourcePort'])
     
     # 划分大流和小流（以100个包为分界线）
-    large_flows = df_sorted[df_sorted['TxPkts'] >= 10]
-    small_flows = df_sorted[df_sorted['TxPkts'] < 10]
+    large_flows = df_sorted[df_sorted['TxPkts'] >= 100]
+    small_flows = df_sorted[df_sorted['TxPkts'] < 100]
     
     # 计算汇总统计信息（整体）
     total_tx_bytes = df_sorted['TxBytes'].sum()
@@ -131,14 +131,14 @@ def process_flow_data(input_file):
     print(f"处理完成，{data_type}结果已保存到 {output_file}")
 
 
-case_name = "tc2-05"
+case_name = "tc2-03"
 
 input_files = [
 os.path.join(
         DATA_DIR,
         "BMS",
         case_name,
-       # "2.0M",
+       "4.0M",
         f"flow-analysis-{case_name}.txt"
     ),
     os.path.join(

@@ -375,6 +375,8 @@ TrafficControlLayer::Send(Ptr<NetDevice> device, Ptr<QueueDiscItem> item)
     {
         devQueueIface = ndi->second.m_ndqi;
     }
+    // std::cout << "debugwk_in_trafficControlLayer Host sending packet: size=" << item->GetPacket()->GetSize() << " bytes, device=" << device << std::endl;
+
 
     // determine the transmission queue of the device where the packet will be enqueued
     std::size_t txq = 0;

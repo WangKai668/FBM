@@ -203,7 +203,7 @@ main(int argc, char* argv[])
     // CommandLine cmd(__FILE__);
     // cmd.Parse(argc, argv);
 
-    uint32_t numSpokes = 35;   // 8
+    uint32_t numSpokes = 20;   // 8
     uint32_t numReceivers = 6; // 4
     double sim_time = 0.2;
     DataRate recvLinkCapacity = DataRate("100Gbps");
