@@ -1183,7 +1183,7 @@ def test8_new_plot(testcase_number, testcase_name):
 
     final_font_size = 30
     # 新实验的自变量：500Gbps背景流持续时间，单位us
-    change_times_us = [2, 4, 8, 16, 32, 64]
+    change_times_us = [5,10, 15, 30, 45, 60]  # 5 10 15 30 45 60
     # DeepHiR静态阈值
     thresholds = [0.2, 0.5, 1.0, 2.0, 4.0]
     markers_bms = ['o', 'v', '^', 's', '*']

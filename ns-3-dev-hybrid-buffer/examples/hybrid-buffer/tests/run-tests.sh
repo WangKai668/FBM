@@ -132,169 +132,169 @@ cleanFile()
 }
 
 
-runTest8()
-{
-  # 从 hybrid-buffer-test-tc2-08 中提取 tc2-08
-  local case_id="${testcase#hybrid-buffer-test-}"
-
-  local output_dir_real="${OUTPUT_DIR}/${algorithm}"
-  local final_dir
-  local output_file_real
-
-  echo "Starting testcase $testcase at $(date)"
-
-  if [[ "$algorithm" == "pbs" ]]; then
-
-    for flow_rate in 900 800 700 600 500 400 300 200 100
-    do
-      echo "Starting testcase $testcase with flow_rate=$flow_rate at $(date)"
-
-      final_dir="${output_dir_real}/${case_id}/${flow_rate}"
-      output_file_real="${final_dir}/${testcase}.txt"
-      mkdir -p "$final_dir"
-      rm -f "$final_dir"/*.csv
-
-      ./ns3 run --no-build --cwd="$final_dir" \
-        "$testcase --Deephir_threshold=1 --algorithm_name=pbs --flow_rate=$flow_rate" \
-        > "$output_file_real" 2>&1
-
-      if [[ $? -ne 0 ]]; then
-        echo "ERROR: $testcase pbs flow_rate=$flow_rate 运行失败"
-        echo "日志位置：$output_file_real"
-        return 1
-      fi
-
-      echo "Finished flow_rate=$flow_rate"
-    done
-
-  elif [[ "$algorithm" == "BMS" ]]; then
-
-    for flow_rate in 900 800 700 600 500 400 300 200 100
-    do
-      for Deephir_threshold in 0.2 0.5 1.0 2.0 4.0
-      do
-        echo "Starting testcase $testcase with flow_rate=$flow_rate Deephir_threshold=$Deephir_threshold at $(date)"
-
-        final_dir="${output_dir_real}/${case_id}/${Deephir_threshold}M/${flow_rate}"
-        output_file_real="${final_dir}/${testcase}.txt"
-
-        mkdir -p "$final_dir"
-
-        rm -f "$final_dir"/*.csv
-
-        ./ns3 run --no-build --cwd="$final_dir" \
-          "$testcase --Deephir_threshold=$Deephir_threshold --algorithm_name=BMS --flow_rate=$flow_rate" \
-          > "$output_file_real" 2>&1
-
-        if [[ $? -ne 0 ]]; then
-          echo "ERROR: $testcase BMS flow_rate=$flow_rate threshold=$Deephir_threshold 运行失败"
-          echo "日志位置：$output_file_real"
-          return 1
-        fi
-
-        echo "Finished flow_rate=$flow_rate threshold=$Deephir_threshold"
-      done
-    done
-
-  else
-    echo "ERROR: runTest8 只支持 pbs 或 BMS，当前参数为：$algorithm"
-    return 1
-  fi
-
-  echo "Finished testcase $testcase at $(date)"
-}
-
-
-# 新的8号实验的运行代码
 # runTest8()
 # {
-#   # 从 hybrid-buffer-test-tc2-11 中提取 tc2-11
+#   # 从 hybrid-buffer-test-tc2-08 中提取 tc2-08
 #   local case_id="${testcase#hybrid-buffer-test-}"
 
 #   local output_dir_real="${OUTPUT_DIR}/${algorithm}"
 #   local final_dir
 #   local output_file_real
 
-#   # 新实验的自变量：
-#   # 500Gbps背景流持续时间，单位us
-#   local change_time_list=(2 4 8 16 32 64)
-
 #   echo "Starting testcase $testcase at $(date)"
 
 #   if [[ "$algorithm" == "pbs" ]]; then
 
-#     # FBM不需要遍历DeepHiR阈值
-#     for change_time_us in "${change_time_list[@]}"
+#     for flow_rate in 900 800 700 600 500 400 300 200 100
 #     do
-#       echo "Starting testcase $testcase with change_time_us=${change_time_us}us algorithm=pbs at $(date)"
+#       echo "Starting testcase $testcase with flow_rate=$flow_rate at $(date)"
 
-#       final_dir="${output_dir_real}/${case_id}/${change_time_us}us"
+#       final_dir="${output_dir_real}/${case_id}/${flow_rate}"
 #       output_file_real="${final_dir}/${testcase}.txt"
-
 #       mkdir -p "$final_dir"
-
-#       # 删除上一次实验结果
 #       rm -f "$final_dir"/*.csv
-#       rm -f "$final_dir"/*.xml
-#       rm -f "$output_file_real"
 
-#       if ! ./ns3 run --no-build --cwd="$final_dir" \
-#         "$testcase \
-#         --Deephir_threshold=1 \
-#         --algorithm_name=pbs \
-#         --change_time_us=$change_time_us" \
+#       ./ns3 run --no-build --cwd="$final_dir" \
+#         "$testcase --Deephir_threshold=1 --algorithm_name=pbs --flow_rate=$flow_rate" \
 #         > "$output_file_real" 2>&1
-#       then
-#         echo "ERROR: $testcase pbs change_time_us=${change_time_us}us 运行失败"
+
+#       if [[ $? -ne 0 ]]; then
+#         echo "ERROR: $testcase pbs flow_rate=$flow_rate 运行失败"
 #         echo "日志位置：$output_file_real"
 #         return 1
 #       fi
 
-#       echo "Finished pbs change_time_us=${change_time_us}us"
+#       echo "Finished flow_rate=$flow_rate"
 #     done
 
 #   elif [[ "$algorithm" == "BMS" ]]; then
 
-#     # DeepHiR继续遍历静态阈值
-#     for Deephir_threshold in 0.2 0.5 1.0 2.0 4.0
+#     for flow_rate in 900 800 700 600 500 400 300 200 100
 #     do
-#       for change_time_us in "${change_time_list[@]}"
+#       for Deephir_threshold in 0.2 0.5 1.0 2.0 4.0
 #       do
-#         echo "Starting testcase $testcase with change_time_us=${change_time_us}us Deephir_threshold=${Deephir_threshold}M at $(date)"
+#         echo "Starting testcase $testcase with flow_rate=$flow_rate Deephir_threshold=$Deephir_threshold at $(date)"
 
-#         final_dir="${output_dir_real}/${case_id}/${Deephir_threshold}M/${change_time_us}us"
+#         final_dir="${output_dir_real}/${case_id}/${Deephir_threshold}M/${flow_rate}"
 #         output_file_real="${final_dir}/${testcase}.txt"
 
 #         mkdir -p "$final_dir"
 
-#         # 删除上一次实验结果
 #         rm -f "$final_dir"/*.csv
-#         rm -f "$final_dir"/*.xml
-#         rm -f "$output_file_real"
 
-#         if ! ./ns3 run --no-build --cwd="$final_dir" \
-#           "$testcase \
-#           --Deephir_threshold=$Deephir_threshold \
-#           --algorithm_name=BMS \
-#           --change_time_us=$change_time_us" \
+#         ./ns3 run --no-build --cwd="$final_dir" \
+#           "$testcase --Deephir_threshold=$Deephir_threshold --algorithm_name=BMS --flow_rate=$flow_rate" \
 #           > "$output_file_real" 2>&1
-#         then
-#           echo "ERROR: $testcase BMS change_time_us=${change_time_us}us threshold=${Deephir_threshold}M 运行失败"
+
+#         if [[ $? -ne 0 ]]; then
+#           echo "ERROR: $testcase BMS flow_rate=$flow_rate threshold=$Deephir_threshold 运行失败"
 #           echo "日志位置：$output_file_real"
 #           return 1
 #         fi
 
-#         echo "Finished BMS change_time_us=${change_time_us}us threshold=${Deephir_threshold}M"
+#         echo "Finished flow_rate=$flow_rate threshold=$Deephir_threshold"
 #       done
 #     done
 
 #   else
-#     echo "ERROR: runTest11 只支持 pbs 或 BMS，当前参数为：$algorithm"
+#     echo "ERROR: runTest8 只支持 pbs 或 BMS，当前参数为：$algorithm"
 #     return 1
 #   fi
 
 #   echo "Finished testcase $testcase at $(date)"
 # }
+
+
+# 新的8号实验的运行代码
+runTest8()
+{
+  # 从 hybrid-buffer-test-tc2-11 中提取 tc2-11
+  local case_id="${testcase#hybrid-buffer-test-}"
+
+  local output_dir_real="${OUTPUT_DIR}/${algorithm}"
+  local final_dir
+  local output_file_real
+
+  # 新实验的自变量：
+  # 500Gbps背景流持续时间，单位us
+  local change_time_list=(5 10 15 30 45 60)
+
+  echo "Starting testcase $testcase at $(date)"
+
+  if [[ "$algorithm" == "pbs" ]]; then
+
+    # FBM不需要遍历DeepHiR阈值
+    for change_time_us in "${change_time_list[@]}"
+    do
+      echo "Starting testcase $testcase with change_time_us=${change_time_us}us algorithm=pbs at $(date)"
+
+      final_dir="${output_dir_real}/${case_id}/${change_time_us}us"
+      output_file_real="${final_dir}/${testcase}.txt"
+
+      mkdir -p "$final_dir"
+
+      # 删除上一次实验结果
+      rm -f "$final_dir"/*.csv
+      rm -f "$final_dir"/*.xml
+      rm -f "$output_file_real"
+
+      if ! ./ns3 run --no-build --cwd="$final_dir" \
+        "$testcase \
+        --Deephir_threshold=1 \
+        --algorithm_name=pbs \
+        --change_time_us=$change_time_us" \
+        > "$output_file_real" 2>&1
+      then
+        echo "ERROR: $testcase pbs change_time_us=${change_time_us}us 运行失败"
+        echo "日志位置：$output_file_real"
+        return 1
+      fi
+
+      echo "Finished pbs change_time_us=${change_time_us}us"
+    done
+
+  elif [[ "$algorithm" == "BMS" ]]; then
+
+    # DeepHiR继续遍历静态阈值
+    for Deephir_threshold in 0.2 0.5 1.0 2.0 4.0
+    do
+      for change_time_us in "${change_time_list[@]}"
+      do
+        echo "Starting testcase $testcase with change_time_us=${change_time_us}us Deephir_threshold=${Deephir_threshold}M at $(date)"
+
+        final_dir="${output_dir_real}/${case_id}/${Deephir_threshold}M/${change_time_us}us"
+        output_file_real="${final_dir}/${testcase}.txt"
+
+        mkdir -p "$final_dir"
+
+        # 删除上一次实验结果
+        rm -f "$final_dir"/*.csv
+        rm -f "$final_dir"/*.xml
+        rm -f "$output_file_real"
+
+        if ! ./ns3 run --no-build --cwd="$final_dir" \
+          "$testcase \
+          --Deephir_threshold=$Deephir_threshold \
+          --algorithm_name=BMS \
+          --change_time_us=$change_time_us" \
+          > "$output_file_real" 2>&1
+        then
+          echo "ERROR: $testcase BMS change_time_us=${change_time_us}us threshold=${Deephir_threshold}M 运行失败"
+          echo "日志位置：$output_file_real"
+          return 1
+        fi
+
+        echo "Finished BMS change_time_us=${change_time_us}us threshold=${Deephir_threshold}M"
+      done
+    done
+
+  else
+    echo "ERROR: runTest11 只支持 pbs 或 BMS，当前参数为：$algorithm"
+    return 1
+  fi
+
+  echo "Finished testcase $testcase at $(date)"
+}
 
 
 runTest9()

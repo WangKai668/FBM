@@ -85,7 +85,9 @@ StarSimHelperTc201::SetupRouterPacketFilter()
     // Install packet filters for each output port
     for (uint32_t i = 0; i < m_nSpokes; i++)
     {
-        std::vector<uint8_t> priCls = {0, 0};
+        const uint32_t numSenders = m_nSpokes - m_nReceivers;
+
+        std::vector<uint8_t> priCls(numSenders, 0);
         Ptr<QueueDisc> rootQdisc = tc->GetRootQueueDiscOnDevice(m_hubDevices.Get(i));
         // root classify rule: one flow goto hp, another goto lp
         Ptr<FiveTuplePacketFilter> rootFilter = CreateObject<FiveTuplePacketFilter>();
@@ -108,7 +110,7 @@ StarSimHelperTc201::SetupRouterPacketFilter()
         for (uint32_t l2id = 0; l2id < rootQdisc->GetNQueueDiscClasses(); l2id++)
         {
             // layer 2 (hp)
-            std::vector<uint8_t> qCls = {0, 0};
+            std::vector<uint8_t> qCls(numSenders, 0);       
             Ptr<QueueDiscClass> l2Cls = rootQdisc->GetQueueDiscClass(l2id);
             Ptr<QueueDisc> l2Qdisc = l2Cls->GetQueueDisc();
             Ptr<FiveTuplePacketFilter> l2Filter = CreateObject<FiveTuplePacketFilter>();
@@ -170,8 +172,8 @@ main(int argc, char* argv[])
         Config::SetDefault("ns3::SwitchMmu::BMAlgorithm", EnumValue(5)); // BMS
     }
 
-    uint32_t numSpokes = 4;
-    uint32_t numReceivers = 2;
+    uint32_t numSpokes = 6;
+    uint32_t numReceivers = 3;
     double sim_time = 0.2;
     DataRate recvLinkCapacity = DataRate("100Gbps");
     Time recvLinkDelay = MicroSeconds(1);
@@ -188,31 +190,30 @@ main(int argc, char* argv[])
                              sendLinkCapacity,
                              sendLinkDelay);
 
-    const DataRate backgroundRateHigh("500Gbps");   //端口1的500速率
-    const DataRate backgroundRateLow("100Gbps");    // 端口1变速
-    const DataRate burstRate("1200Gbps");   //端口2的速率
+    const DataRate backgroundRateHigh("500Gbps");
+    const DataRate backgroundRateHold("150Gbps");
+    const DataRate burstRate("1100Gbps");
 
-    const Time changeTime = MicroSeconds(change_time_us);   //x时间
+    const Time preloadEnd = MicroSeconds(change_time_us);
+    const Time burstStart = preloadEnd + MicroSeconds(2);
+    const Time burstDuration = MicroSeconds(24);
+    const Time burstEnd = burstStart + burstDuration;
+    const Time backgroundStop =  burstEnd + MicroSeconds(40);
 
-    // 切换到100Gbps之后，再等待固定200us
-    const Time burstStart = changeTime + MicroSeconds(200);   //端口2间隔200
-    const Time burstDuration = MicroSeconds(32);   //持续时间
-    const Time burstEnd = burstStart + burstDuration;   
-    // 最大x为64us 背景流继续运行到400us，覆盖整个突发阶段
-    const Time backgroundStop = MicroSeconds(400);  
     std::cout << "Deephir_threshold="<< Deephir_threshold << "M" << std::endl;
     std::cout << "change_time_us=" << change_time_us<< "us" << std::endl;
     std::cout << "burst_start_us=" << burstStart.GetMicroSeconds()  << "us"  << std::endl;
     std::cout << "burst_end_us=" << burstEnd.GetMicroSeconds() << "us" << std::endl;
 
-    // 端口1：0～x us，以500Gbps发送
-    simHelper.AddFlow(3,1, MicroSeconds(0), changeTime, backgroundRateHigh);
-    // 端口1：x us以后降为100Gbps
-    simHelper.AddFlow(3, 1,  changeTime, backgroundStop, backgroundRateLow);
-    // 端口2：在x+200us时注入1000Gbps突发，持续32us
-    simHelper.AddFlow(2, 0, burstStart, burstEnd, burstRate);
+    simHelper.AddFlow( 4, 1, MicroSeconds(0),preloadEnd, backgroundRateHigh);
+    simHelper.AddFlow( 4,  1, preloadEnd,backgroundStop, backgroundRateHold);
 
+    // 背景队列B：发送端5 -> 接收端2
+    simHelper.AddFlow(  5,  2, MicroSeconds(0),  preloadEnd,  backgroundRateHigh);
+    simHelper.AddFlow(  5,  2, preloadEnd,  backgroundStop, backgroundRateHold);
 
+    // 新到达的目标突发：发送端3 -> 接收端0
+    simHelper.AddFlow( 3, 0, burstStart,  burstEnd,  burstRate);
 
     simHelper.EnableHbmThroughputTracing();
     simHelper.EnableBufferUsageTracing();
