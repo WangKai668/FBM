@@ -201,14 +201,14 @@ main(int argc, char* argv[])
     // CommandLine cmd(__FILE__);
     // cmd.Parse(argc, argv);
 
-    uint32_t numSpokes = 35;   // 8
-    uint32_t numReceivers = 6; // 4
+    uint32_t numSpokes = 64;   // 8
+    uint32_t numReceivers = 12; // 4
     double sim_time = 0.2;
     DataRate recvLinkCapacity = DataRate("100Gbps");
-    Time recvLinkDelay = MicroSeconds(5);
+    Time recvLinkDelay = MicroSeconds(0.5);
     DataRate sendLinkCapacity = DataRate("100Gbps"); // 1000Gbps
-    Time sendLinkDelay = MicroSeconds(5);
-
+    Time sendLinkDelay = MicroSeconds(0.5); //100Gbps*80us=1000KB
+ 
 
     Config::SetDefault("ns3::SwitchMmu::nextFilePath", StringValue("tc2-03/"));
 
@@ -241,9 +241,7 @@ main(int argc, char* argv[])
     
     simHelper.ConfigTransport("tcp", "ns3::TcpDctcp");
 
-    double interval = 0.0005;
-    double nowT = 0.0;
-
+   
     std::string file;
     if (trafficGenDir.empty())
     {
@@ -281,6 +279,16 @@ main(int argc, char* argv[])
 
         return 1;
     }
+    double linkLoad = 0.05; // Incast负载  20%   5%
+    double querySize = 0.4 * 4*1e6; // 总Incast数据量 40% bufferSize = 1.6MB
+    double busrtSize = querySize / (numSpokes-numReceivers);    // 每个发送端每轮发出的数据量 40%*4MB/SenderNums = 1.6MB/6= 266KB    266KB/100Gbps=21.28us
+    double intervalperReceiver = querySize / 100 * 8 / linkLoad; // 该端口排空这些数据需要1.6MB/100Gbps=128us， 所以20%的负载要128us/20% = 640us发一轮
+    double interval = intervalperReceiver / numReceivers /1e9;  // 单位:s 上述是针对一个端口（接收端），实际上每个接收端都要20%的负载， 那么总体间隔就是要640us/ReceiverNums=640us/6=106.67us
+    double nowT = 0.0;
+    /*
+    5%  1.6MB   1.6MB/12=133KB    133KB/100Gbps=10.6us    1.6MB/100Gbps=128us，所以5%的负载要128us/5% = 2560us发一轮。  12个接收端，那么总体间隔是2560us/12=212us
+    */
+
         // 第一行是流量数量
     lines.erase(lines.begin());
     int count = 0;
@@ -294,33 +302,17 @@ main(int argc, char* argv[])
         if (isIncast){
             while (nowT + interval < std::stod(words.at(2)) - 2)
             {
-                Ptr<ExponentialRandomVariable> sizeVar = CreateObject<ExponentialRandomVariable>();
-                sizeVar->SetAttribute("Mean", DoubleValue(200*1000));
-                uint64_t flowSize = sizeVar->GetValue();
-
-                // uint32_t dst = rand() % 6;
-                // for (int k = 6; k < numSpokes; k++) {
-                //     if (k % 8 == 0) {
-                //         dst = rand() % 6; // Change receiver every 8 senders
-                //     }
-                //     simHelper.AddFlow((uint32_t)k,
-                //                 dst,
-                //                 Seconds(nowT),
-                //                 Seconds(sim_time),
-                //                 DataRate("100Gbps"),
-                //                 flowSize);
-                // }
-                // Ptr<ExponentialRandomVariable> timeVar = CreateObject<ExponentialRandomVariable>();
-                // timeVar->SetAttribute("Mean", DoubleValue(interval));
-                // nowT += timeVar->GetValue();
-
-                for (int k = numSpokes-5; k < numSpokes; k++) 
+                // Ptr<ExponentialRandomVariable> sizeVar = CreateObject<ExponentialRandomVariable>();
+                // sizeVar->SetAttribute("Mean", DoubleValue(busrtSize));
+                uint64_t flowSize = busrtSize; //sizeVar->GetValue();
+                uint32_t dst = rand() % numReceivers;
+                for (int k = numReceivers; k < numSpokes; k++) 
                     simHelper.AddFlow((uint32_t)k,
-                                    0,
-                                Seconds(nowT),
-                                Seconds(sim_time),
-                                DataRate("100Gbps"),
-                                flowSize);
+                                    dst,
+                                    Seconds(nowT),
+                                    Seconds(sim_time),
+                                    DataRate("100Gbps"),
+                                    flowSize);
                 nowT += interval;
             }
         }
@@ -338,16 +330,16 @@ main(int argc, char* argv[])
                 << Seconds(std::stod(words.at(2)) - 2)  << endl;
     }
 
-    simHelper.EnableHbmThroughputTracing();
-    simHelper.EnableBufferUsageTracing();
-    simHelper.EnableBmResultTracing();
-    simHelper.EnablePortThroughputTracing();
-    simHelper.EnableQueueThroughputTracing();
-    simHelper.EnableWCacheThroughputTracing();
-    simHelper.EnableSramThroughputTracing();
-    simHelper.EnableQueueWCacheTracing();
-    simHelper.EnableQueueSramTracing();
-    simHelper.EnableQueueHbmTracing();
+    // simHelper.EnableHbmThroughputTracing();
+    // simHelper.EnableBufferUsageTracing();
+    // simHelper.EnableBmResultTracing();
+    // simHelper.EnablePortThroughputTracing();
+    // simHelper.EnableQueueThroughputTracing();
+    // simHelper.EnableWCacheThroughputTracing();
+    // simHelper.EnableSramThroughputTracing();
+    // simHelper.EnableQueueWCacheTracing();
+    // simHelper.EnableQueueSramTracing();
+    // simHelper.EnableQueueHbmTracing();
 
     simHelper.Run();
 

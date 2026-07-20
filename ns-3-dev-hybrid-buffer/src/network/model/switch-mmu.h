@@ -947,16 +947,18 @@ class SwitchMmu : public Object
     std::vector<PortType> m_portRates; //!< Out rates of ports, default 100Gbps
 
     double LINK_BW = 100.0; // 出口带宽，100Gbps
-    double RTT = 32 * 1e3; // RTT, 32us
+    double RTT = 4 * 1e3; // RTT, 32us
 
-    double DT_alpha = 3;
+    double DT_alpha = 4;
 
     double UTILITY_ETA = 0.1; //效用函数参数
     double MD_EPSILON = 10; // MD参数
-    double AI = 1 * 1e3; // AI因子
-    double EWMA_W;  //lambda平滑因子    
+    double AI = 0.5 * 1e3; // AI因子
+    double EWMA_W;  //lambda平滑因子
 
-    uint64_t min_T = 1 * 1e3; //最小周期，= AI
+    double globalCommitSram = 0;
+
+    uint64_t min_T = 0.5 * 1e3; //最小周期，= AI
 
     void CountDramBandwidth();
     double Dram_Bandwidth_Timer = 1000;
@@ -998,6 +1000,7 @@ class SwitchMmu : public Object
 
     std::vector<std::vector<std::vector<double>>> Packet_Size_Cycle_Max;
     std::vector<std::vector<std::vector<double>>> EWMA_R;        // lamba
+    std::vector<std::vector<std::vector<double>>> EWMA_Rslow;        // lamba
     std::vector<std::vector<std::vector<bool>>> storeDecision; // =1：存片内； =0 存片外；
     std::vector<std::vector<std::vector<double>>> delta_Q_array; //
 

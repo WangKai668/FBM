@@ -204,13 +204,13 @@ main(int argc, char* argv[])
     // CommandLine cmd(__FILE__);
     // cmd.Parse(argc, argv);
 
-    uint32_t numSpokes = 35;   // 8
-    uint32_t numReceivers = 6; // 4
+    uint32_t numSpokes = 64;   // 8
+    uint32_t numReceivers = 12; // 4
     double sim_time = 0.2;
     DataRate recvLinkCapacity = DataRate("100Gbps");
-    Time recvLinkDelay = MicroSeconds(5);
+    Time recvLinkDelay = MicroSeconds(0.5);
     DataRate sendLinkCapacity = DataRate("100Gbps"); // 1000Gbps
-    Time sendLinkDelay = MicroSeconds(5);
+    Time sendLinkDelay = MicroSeconds(0.5);
 
 
     Config::SetDefault("ns3::SwitchMmu::nextFilePath", StringValue("tc2-01/"));
@@ -292,16 +292,16 @@ main(int argc, char* argv[])
                 << Seconds(std::stod(words.at(2)) - 2)  << endl;
     }
 
-    simHelper.EnableHbmThroughputTracing();
-    simHelper.EnableBufferUsageTracing();
-    simHelper.EnableBmResultTracing();
-    simHelper.EnablePortThroughputTracing();
-    simHelper.EnableQueueThroughputTracing();
-    simHelper.EnableWCacheThroughputTracing();
-    simHelper.EnableSramThroughputTracing();
-    simHelper.EnableQueueWCacheTracing();
-    simHelper.EnableQueueSramTracing();
-    simHelper.EnableQueueHbmTracing();
+    // simHelper.EnableHbmThroughputTracing();
+    // simHelper.EnableBufferUsageTracing();
+    // simHelper.EnableBmResultTracing();
+    // simHelper.EnablePortThroughputTracing();
+    // simHelper.EnableQueueThroughputTracing();
+    // simHelper.EnableWCacheThroughputTracing();
+    // simHelper.EnableSramThroughputTracing();
+    // simHelper.EnableQueueWCacheTracing();
+    // simHelper.EnableQueueSramTracing();
+    // simHelper.EnableQueueHbmTracing();
 
     simHelper.Run();
 

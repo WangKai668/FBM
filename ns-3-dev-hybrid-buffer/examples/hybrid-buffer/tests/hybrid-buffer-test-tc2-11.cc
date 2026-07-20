@@ -198,8 +198,8 @@ main(int argc, char* argv[])
     // CommandLine cmd(__FILE__);
     // cmd.Parse(argc, argv);
 
-    uint32_t numSpokes = 35;   // 8
-    uint32_t numReceivers = 6; // 4
+    uint32_t numSpokes = 64;   // 8
+    uint32_t numReceivers = 12; // 4
     double sim_time = 0.2;
     DataRate recvLinkCapacity = DataRate("100Gbps");
     Time recvLinkDelay = MicroSeconds(1);
@@ -220,8 +220,16 @@ main(int argc, char* argv[])
     std::string rate1 = std::to_string(sendRate1) + "Gbps";
     std::string rate2 = std::to_string(sendRate2) + "Gbps";
 
-    double interval = 0.0010;
-    double lastTime = 0.0001;
+    // double interval = 0.0010;
+    // double lastTime = 0.0001;
+    // double nowT = 0.0;
+
+    double linkLoad = 0.10; // Incast负载  20%   5%
+    double querySize = 0.4 * 4*1e6; // 总Incast数据量 40% bufferSize = 1.6MB
+    double busrtSize = querySize / (numSpokes-numReceivers);    // 每个发送端每轮发出的数据量 40%*4MB/SenderNums = 1.6MB/6= 266KB    266KB/100Gbps=21.28us
+    double lastTime = busrtSize / 100 * 8 ; // 每个发送端发完这些数据需要21.28us
+    double intervalperReceiver = querySize / 100 * 8 / linkLoad; // 该端口排空这些数据需要1.6MB/100Gbps=128us， 所以20%的负载要128us/20% = 640us发一轮
+    double interval = intervalperReceiver / numReceivers /1e9;  // 单位:s 上述是针对一个端口（接收端），实际上每个接收端都要20%的负载， 那么总体间隔就是要640us/ReceiverNums=640us/6=106.67us
     double nowT = 0.0;
 
     // /*原来的*/{
@@ -276,19 +284,23 @@ main(int argc, char* argv[])
                 if (isIncast){
                     while (nowT + interval < std::stod(words.at(2)) - 2)
                     {
-                        // for (int k = numSpokes-5; k < numSpokes; k++) 
-                        //     simHelper.AddFlow((uint32_t)k,
-                        //                     0,
-                        //                     Seconds(nowT),
-                        //                     Seconds(nowT + lastTime),
-                        //                     DataRate("100Gbps"));
-
-                        simHelper.AddFlow(30,
-                                        0,
-                                        Seconds(nowT),
-                                        Seconds(nowT + lastTime),
-                                        DataRate("300Gbps"));
+                        uint64_t flowSize = busrtSize; //sizeVar->GetValue();
+                        uint32_t dst = rand() % numReceivers;
+                        for (int k = numReceivers; k < numSpokes; k++) 
+                            simHelper.AddFlow((uint32_t)k,
+                                            dst,
+                                            Seconds(nowT),
+                                            Seconds(nowT + lastTime),
+                                            DataRate("100Gbps"),
+                                            flowSize);
                         nowT += interval;
+
+                        // simHelper.AddFlow(30,
+                        //                 0,
+                        //                 Seconds(nowT),
+                        //                 Seconds(nowT + lastTime),
+                        //                 DataRate("300Gbps"));
+                        // nowT += interval;
                         cout << "流量大小Incast：" << (lastTime) * 300 * 1e9 / 8 / 1e6 << "kB " << 6
                             << "到" << 0 << " " << Seconds(nowT) << "到" << Seconds(nowT + lastTime)
                             << " " << DataRate(words.at(4)) << endl;

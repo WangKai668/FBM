@@ -429,7 +429,7 @@ class PointToPointNetDevice : public NetDevice
     bool m_linkUp;                                       //!< Identify if the link is up or not
     TracedCallback<> m_linkChangeCallbacks;              //!< Callback for the link change event
 
-    static const uint16_t DEFAULT_MTU = 1500; //!< Default MTU
+    static const uint16_t DEFAULT_MTU = 4000; //!< Default MTU  defualt 1500
 
     /**
      * \brief The Maximum Transmission Unit
