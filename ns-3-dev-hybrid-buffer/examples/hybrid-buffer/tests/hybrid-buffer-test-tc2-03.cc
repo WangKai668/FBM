@@ -248,7 +248,7 @@ main(int argc, char* argv[])
         std::cerr << "错误：没有收到 traffic_gen_dir 参数" << std::endl;
         return 1;
     }
-    std::string filename = trafficGenDir +(isWeb? "/Generated/traffic_web2.txt" : "/Generated/traffic_fbhdp2.txt");
+    std::string filename = trafficGenDir +(isWeb? "/Generated/traffic_web_80.txt" : "/Generated/traffic_fbhdp_80.txt");
     std::cout << "TrafficGen目录：" << trafficGenDir << std::endl;
     std::cout << "读取流量文件：" << filename << std::endl;
     std::ifstream ifile(filename);
@@ -279,8 +279,8 @@ main(int argc, char* argv[])
 
         return 1;
     }
-    double linkLoad = 0.10; // Incast负载  20%   5%
-    double querySize = 0.4 * 4*1e6; // 总Incast数据量 40% bufferSize = 1.6MB
+    double linkLoad = 0.05; // Incast负载  20%   5%
+    double querySize = 0.2 * 4 * 1e6; // 总Incast数据量 40% bufferSize = 1.6MB
     double busrtSize = querySize / (numSpokes-numReceivers);    // 每个发送端每轮发出的数据量 40%*4MB/SenderNums = 1.6MB/6= 266KB    266KB/100Gbps=21.28us
     double intervalperReceiver = querySize / 100 * 8 / linkLoad; // 该端口排空这些数据需要1.6MB/100Gbps=128us， 所以20%的负载要128us/20% = 640us发一轮
     double interval = intervalperReceiver / numReceivers /1e9;  // 单位:s 上述是针对一个端口（接收端），实际上每个接收端都要20%的负载， 那么总体间隔就是要640us/ReceiverNums=640us/6=106.67us
@@ -289,7 +289,8 @@ main(int argc, char* argv[])
     5%  1.6MB   1.6MB/12=133KB    133KB/100Gbps=10.6us    1.6MB/100Gbps=128us，所以5%的负载要128us/5% = 2560us发一轮。  12个接收端，那么总体间隔是2560us/12=212us
     */
 
-        // 第一行是流量数量
+    // 第一行是流量数量
+    //uint32_t dst = 0;
     lines.erase(lines.begin());
     int count = 0;
     for (auto i : lines)    {
@@ -298,7 +299,7 @@ main(int argc, char* argv[])
         split(i, words, " ");
         for (auto j : words)
             std::cout << j << " ";
-
+            
         if (isIncast){
             while (nowT + interval < std::stod(words.at(2)) - 2)
             {
@@ -306,6 +307,7 @@ main(int argc, char* argv[])
                 // sizeVar->SetAttribute("Mean", DoubleValue(busrtSize));
                 uint64_t flowSize = busrtSize; //sizeVar->GetValue();
                 uint32_t dst = rand() % numReceivers;
+                //if(dst == numReceivers)   dst = 0;
                 for (int k = numReceivers; k < numSpokes; k++) 
                     simHelper.AddFlow((uint32_t)k,
                                     dst,
@@ -314,6 +316,7 @@ main(int argc, char* argv[])
                                     DataRate("100Gbps"),
                                     flowSize);
                 nowT += interval;
+                //dst++;
             }
         }
         

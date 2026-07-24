@@ -1,0 +1,2 @@
+pbs下: 丢包率: 0%      m_avgDelay(ms): 0
+BMS下: 丢包率: 0%      m_avgDelay: 0

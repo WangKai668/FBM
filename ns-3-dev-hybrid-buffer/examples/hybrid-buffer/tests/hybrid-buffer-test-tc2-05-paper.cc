@@ -169,6 +169,7 @@ main(int argc, char* argv[])
     cmd.AddValue("transport","传输协议：tcp 或 udp",
             transport);
     cmd.Parse(argc, argv);
+    bool enableCustomOutput = false;    //是否打印调试输出  默认是不输出
     std::cout << "传输协议：" << transport << std::endl;
     // 仿真参数设置
     double ewma_w = 0.1; // EWMA 权重

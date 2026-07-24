@@ -163,8 +163,10 @@ main(int argc, char* argv[])
 
     // 解析命令行参数，支持算法名选择
     CommandLine cmd(__FILE__);
+    double Deephir_threshold = 0.2;
     std::string algorithm_name = "BMS"; // 默认算法名
     std::string transport = "udp";  // 默认 TCP
+    uint64_t if_change_threshold = 0;
     bool enableCustomOutput = false;    //是否打印调试输出  默认是不输出
     cmd.AddValue("Deephir_threshold", "deephir阈值", Deephir_threshold);
     cmd.AddValue("if_change_threshold", "是否改变DT阈值", if_change_threshold);
@@ -187,12 +189,20 @@ main(int argc, char* argv[])
     Time recvLinkDelay = MicroSeconds(5); //MicroSeconds(20);
     DataRate sendLinkCapacity = DataRate("100Gbps"); // 1000Gbps
     Time sendLinkDelay = MicroSeconds(5); //MicroSeconds(20);
-
+    double ewma_w = 0.1;
+    double eta_md = 1.0;
     Config::SetDefault("ns3::SwitchMmu::nextFilePath", StringValue("tc2-05/"));
     Config::SetDefault("ns3::SwitchMmu::now_algorithm_name", StringValue(algorithm_name));
     Config::SetDefault("ns3::SwitchMmu::Deeohir_threshold", DoubleValue(Deephir_threshold));
     Config::SetDefault("ns3::SwitchMmu::if_change_threshold",UintegerValue(if_change_threshold));
     Config::SetDefault("ns3::SwitchMmu::if_test9", UintegerValue(0));
+    cmd.AddValue("ewma_w",
+             "EWMA weight for PBS",
+             ewma_w);
+
+    cmd.AddValue("eta_md",
+                "Multiplicative decrease parameter for PBS",
+                eta_md);
     if (!algorithm_name.compare("pbs"))
     {
         Config::SetDefault("ns3::SwitchMmu::BMAlgorithm", EnumValue(2)); // pbs
@@ -206,7 +216,7 @@ main(int argc, char* argv[])
         Config::SetDefault("ns3::SwitchMmu::now_algorithm_name", StringValue("BMS"));
     }
 
-    hb::StarSimHelperTc202 simHelper("test-tc2-05", Seconds(0), Seconds(sim_time));
+    hb::StarSimHelperTc201 simHelper("test-tc2-05", Seconds(0), Seconds(sim_time));
     simHelper.SetTransportProtocol(transport);
     simHelper.ConfigTransport();
     simHelper.ConfigTopology(numSpokes,
