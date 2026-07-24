@@ -144,7 +144,7 @@ main(int argc, char* argv[])
             transport);
     std::cout << "传输协议：" << transport << std::endl;
     cmd.Parse(argc, argv);
-
+    bool enableCustomOutput = false;    //是否打印调试输出  默认是不输出
     uint32_t numSpokes = 4;
     uint32_t numReceivers = 2;
     double sim_time = 0.2;

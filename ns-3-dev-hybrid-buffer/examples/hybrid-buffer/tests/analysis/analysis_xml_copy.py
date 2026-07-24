@@ -15,6 +15,22 @@ def get_xml_path(test_id, type):
         f"flow-monitor-test-{test_id}.xml"
     )
 
+
+
+# def get_xml_path(test_id, threshold, flow_rate):
+#     """构建BMS实验XML路径"""
+#     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+#     return os.path.join(
+#         base_dir,
+#         "data",
+#         "BMS",
+#         test_id,
+#         threshold,
+#         str(flow_rate),
+#         f"flow-monitor-test-{test_id}.xml"
+#     )
+
+
 def get_xml_path_pbs(test_id):
     """根据测试编号自动构建XML文件路径"""
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -25,6 +41,22 @@ def get_xml_path_pbs(test_id):
         test_id,
         f"flow-monitor-test-{test_id}.xml"
     )
+
+
+
+# def get_xml_path_pbs(test_id, flow_rate):
+#     """构建PBS实验XML路径"""
+#     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+#     return os.path.join(
+#         base_dir,
+#         "data",
+#         "pbs",
+#         test_id,
+#         str(flow_rate),
+#         f"flow-monitor-test-{test_id}.xml"
+#     )
+
+
 
 def parse_flowmonitor_xml(xml_file):
     """解析FlowMonitor XML文件并计算吞吐量和FCT"""
@@ -117,7 +149,7 @@ if __name__ == "__main__":
         type_list = ['0.2M', '0.5M', '1.0M', '2.0M', '4.0M']
         for bw_type in type_list:
             xml_file = get_xml_path(test_id, bw_type)
-            output_file = os.path.join(os.path.dirname(xml_file), f"flow-analysis-{test_id}.txt")
+            output_file = os.path.join(os.path.dirname(xml_file), f"flow-analysis-{test_id}.txt")  # {test_id}
             
             if not os.path.exists(xml_file):
                 print(f"Warning: XML file not found at {xml_file}, skipping...")
@@ -152,3 +184,62 @@ if __name__ == "__main__":
     else:
         print(f"Error: Unknown data type '{data_type}'. Use 'BMS' or 'pbs'.")
         sys.exit(1)
+   
+    # if data_type == "BMS":
+    #     threshold_list = ['0.2M', '0.5M', '1.0M', '2.0M', '4.0M']
+    #     flow_rate_list = [100, 200, 300, 400, 500, 600, 700, 800, 900]
+
+    #     for threshold in threshold_list:
+    #         for flow_rate in flow_rate_list:
+    #             xml_file = get_xml_path(test_id, threshold, flow_rate)
+
+    #             output_file = os.path.join(
+    #                 os.path.dirname(xml_file),
+    #                 f"flow-analysis-{test_id}.txt"
+    #             )
+
+    #             if not os.path.exists(xml_file):
+    #                 print(f"Warning: XML file not found at {xml_file}, skipping...")
+    #                 continue
+
+    #             print(
+    #                 f"Processing {test_id}, "
+    #                 f"threshold={threshold}, flow_rate={flow_rate}Gbps..."
+    #             )
+    #             print(f"Input XML: {xml_file}")
+    #             print(f"Output TXT: {output_file}")
+
+    #             flows = parse_flowmonitor_xml(xml_file)
+    #             results = calculate_metrics(flows)
+    #             save_results(results, output_file)
+
+    #             print(f"Analysis completed. Results saved to {output_file}\n")
+
+    # elif data_type == "pbs":
+    #     flow_rate_list = [100, 200, 300, 400, 500, 600, 700, 800, 900]
+
+    #     for flow_rate in flow_rate_list:
+    #         xml_file = get_xml_path_pbs(test_id, flow_rate)
+
+    #         output_file = os.path.join(
+    #             os.path.dirname(xml_file),
+    #             f"flow-analysis-{test_id}.txt"
+    #         )
+
+    #         if not os.path.exists(xml_file):
+    #             print(f"Warning: XML file not found at {xml_file}, skipping...")
+    #             continue
+
+    #         print(f"Processing {test_id}, flow_rate={flow_rate}Gbps...")
+    #         print(f"Input XML: {xml_file}")
+    #         print(f"Output TXT: {output_file}")
+
+    #         flows = parse_flowmonitor_xml(xml_file)
+    #         results = calculate_metrics(flows)
+    #         save_results(results, output_file)
+
+    #         print(f"Analysis completed. Results saved to {output_file}\n")
+
+    # else:
+    #     print(f"Error: Unknown data type '{data_type}'. Use 'BMS' or 'pbs'.")
+    #     sys.exit(1)

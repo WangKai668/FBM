@@ -1045,8 +1045,8 @@ void SwitchMmu::CountDramBandwidth(){
     WriteDram_Size_Total = 0;
     ReadDram_Size_Total = 0;
     Dr_EWMA = Dr_EWMA * 0.9 + std::max(0.0, (1024.0- WriteDram_Rate_Total - ReadDram_Rate_Total)) * 0.1; //m_offChipBuffer->GetDramBandwidth() 空指针
-    cout<< "Time:" << Simulator::Now() << " 片外总写速率: " << WriteDram_Rate_Total << " Gbps, 片外总读速率: " << ReadDram_Rate_Total << " Gbps, 片外剩余带宽: " << Dr_EWMA << " Gbps" <<"  WriteDram_Size_Total "<<WriteDram_Size_Total
-    <<" wcacheUsed "<<m_offChipBuffer->GetWcacheUsed() << " wcacheSize "<<m_offChipBuffer->GetWcacheSize() << endl;
+    //cout<< "Time:" << Simulator::Now() << " 片外总写速率: " << WriteDram_Rate_Total << " Gbps, 片外总读速率: " << ReadDram_Rate_Total << " Gbps, 片外剩余带宽: " << Dr_EWMA << " Gbps" <<"  WriteDram_Size_Total "<<WriteDram_Size_Total
+    //<<" wcacheUsed "<<m_offChipBuffer->GetWcacheUsed() << " wcacheSize "<<m_offChipBuffer->GetWcacheSize() << endl;
     Simulator::Schedule(NanoSeconds(Dram_Bandwidth_Timer), &SwitchMmu::CountDramBandwidth, this);
 }
 

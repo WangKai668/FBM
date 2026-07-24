@@ -190,13 +190,13 @@ main(int argc, char* argv[])
 
     const DataRate backgroundRateHigh("500Gbps");   //端口1的500速率
     const DataRate backgroundRateLow("100Gbps");    // 端口1变速
-    const DataRate burstRate("1200Gbps");   //端口2的速率
+    const DataRate burstRate("2000Gbps");   //端口2的速率
 
     const Time changeTime = MicroSeconds(change_time_us);   //x时间
 
     // 切换到100Gbps之后，再等待固定200us
-    const Time burstStart = changeTime + MicroSeconds(200);   //端口2间隔200
-    const Time burstDuration = MicroSeconds(32);   //持续时间
+    const Time burstStart = changeTime + MicroSeconds(300);   //端口2间隔200
+    const Time burstDuration = MicroSeconds(16);   //持续时间
     const Time burstEnd = burstStart + burstDuration;   
     // 最大x为64us 背景流继续运行到400us，覆盖整个突发阶段
     const Time backgroundStop = MicroSeconds(400);  
