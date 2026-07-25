@@ -142,7 +142,7 @@ def queue_usage_plot(id,name,iftest8SendRate=''):
     if len(hbm_usage) == 0:
         return
 
-    plt.figure(figsize=(7, 5.3))
+    plt.figure(figsize=(8, 7.2), dpi=300)
 
     if id == "tc2-06":
         plt.xlim(x_start,x_end)
@@ -232,7 +232,7 @@ def queue_usage_plot(id,name,iftest8SendRate=''):
         plt.scatter(time_sram2,storing_decision1_sram,label='p2-S ',color='g',s=50, facecolors='none')
         plt.scatter(time_dram2,storing_decision1_dram,label='p2-D ',color='r',s=50, facecolors='none')
 
-    plt.tight_layout()
+    # plt.tight_layout()
     plt.legend().set_visible(True)
     #取出句柄和标签
     handles, labels = plt.gca().get_legend_handles_labels()
@@ -277,13 +277,32 @@ def queue_usage_plot(id,name,iftest8SendRate=''):
                 j = labels.index(str0[i])
                 labels[j],labels[i] = labels[i],labels[j]
                 handles[j],handles[i] = handles[i],handles[j]
-            plt.legend(handles = handles[:4],labels = labels[:4],loc=(0, 1),ncol=2,fontsize=final_font_size,handlelength=1.9,columnspacing=1.2, frameon=False)
-
-    plt.subplots_adjust(top=0.8) #调整子图相对于图形边缘的位置
+            plt.legend(
+                handles=handles[:4],
+                labels=labels[:4],
+                loc='lower center',
+                bbox_to_anchor=(0.5, 1.02),
+                ncol=2,
+                fontsize=20,
+                handlelength=1.8,
+                columnspacing=1.0,
+                handletextpad=0.5,
+                frameon=False
+            )
+    plt.subplots_adjust(
+        left=0.16,
+        right=0.98,
+        bottom=0.16,
+        top=0.72
+    )
     legend =plt.gca().get_legend()
     legend.get_frame().set_linewidth(0)
     path = save_path+name+'/'+id+'/'+iftest8SendRate+'/' +'queue-usage-' + id +  '.pdf'
-    plt.savefig(path)
+    plt.savefig(
+        path,
+        bbox_inches='tight',
+        pad_inches=0.05
+    )
     # plt.show()
     plt.clf()
 
@@ -565,6 +584,7 @@ def queue_write_read_throughput_plot(test_case_number,name,iftest8SendRate=""):
     #print(sum)
     # plt.figure(figsize=(9,7))
     # plt.subplots_adjust(left=0.14, right=0.98,bottom=0.15)
+    plt.figure(figsize=(8, 7.2), dpi=300)
     plt.xticks(fontsize=final_font_size)
     plt.xlabel('Time (ms)',fontsize=final_font_size)
     plt.ylabel('Throughput (Gbps)',fontsize=final_font_size)
@@ -666,13 +686,31 @@ def queue_write_read_throughput_plot(test_case_number,name,iftest8SendRate=""):
             handles[j],handles[i] = handles[i],handles[j]
 
     
-    plt.subplots_adjust(top=0.8)
+    plt.legend(
+        loc='lower center',
+        bbox_to_anchor=(0.5, 1.02),
+        ncol=2,
+        fontsize=20,
+        frameon=False,
+        columnspacing=1.0,
+        handlelength=1.8,
+        handletextpad=0.5
+    )
 
-    plt.legend(loc=(-0.05, 1),ncol=2,fontsize=final_font_size, frameon=False, facecolor='none', columnspacing=1.2)
+    plt.subplots_adjust(
+        left=0.16,
+        right=0.98,
+        bottom=0.16,
+        top=0.72
+    )
     legend =plt.gca().get_legend()
     legend.get_frame().set_linewidth(0)
     path = save_path+name+'/'+iftest8SendRate+'/'+test_case_number+'/' + save_png_name + '.pdf'
-    plt.savefig(path)
+    plt.savefig(
+        path,
+        bbox_inches='tight',
+        pad_inches=0.05
+    )
     # plt.show()
     plt.clf()
 
@@ -1074,7 +1112,8 @@ def T_AI_MD_details(id,name,iftest8SendRate=""):
 
         bax=brokenaxes(xlims=((0.2116,0.23),(1.4016,1.428)),hspace=.5)
 
-        bax.set_ylim(-2.6,28.6)
+        bax.set_ylim(-0.5, 4.2)
+
         bax.tick_params(labelsize=final_font_size,direction = 'in')
         bax.set_xlabel('Time(ms)',fontsize=final_font_size, labelpad=30)
         bax.tick_params(labelsize=final_font_size,direction = 'in')
@@ -1131,7 +1170,7 @@ def test8_plot(id,name):
     # Deephir
     # 定义文件路径
     flow_rates = [100,200,300,400,500,600,700,800,900]
-    thresholds = [0.2,0.5,1.0,2.0,4.0]
+    thresholds = [0.2,0.5,1.0,2.0]  # ,4.0
     plt.figure()
     markers_BMS = ['o','v','^','s','*']
     colors_BMS = ['green','blue','purple','k','orange']
@@ -1171,8 +1210,8 @@ def test8_plot(id,name):
     plt.xticks(fontsize=final_font_size)  # 调整x轴刻度大小
     plt.yticks(fontsize=final_font_size)  # 调整y轴刻度大小
 
-    plt.legend(bbox_to_anchor=(-0.02, 1.001), loc=3, columnspacing=0.5,borderaxespad=0,handles=lines,labels=["DeepHir-0.2M","DeepHir-0.5M","DeepHir-1M","DeepHir-2M","DeepHir-4M","FBM"],ncol=3,fontsize=final_font_size, handlelength=1.5, handletextpad=0.1)
-    legend =plt.gca().get_legend()
+    plt.legend(bbox_to_anchor=(-0.02, 1.001), loc=3, columnspacing=0.5,borderaxespad=0,handles=lines,labels=["DeepHir-0.2M","DeepHir-0.5M","DeepHir-1M","DeepHir-2M","FBM"],ncol=3,fontsize=final_font_size, handlelength=1.5, handletextpad=0.1)
+    legend =plt.gca().get_legend()  # "DeepHir-4M",
     legend.get_frame().set_linewidth(0)
     path = save_path+'compare/tc2-08/adaptability-to-Traffic-Variation-compare.pdf'
     plt.savefig(path, bbox_inches='tight')
@@ -1183,9 +1222,9 @@ def test8_new_plot(testcase_number, testcase_name):
 
     final_font_size = 30
     # 新实验的自变量：500Gbps背景流持续时间，单位us
-    change_times_us = [2, 4, 8, 16, 32, 64]
+    change_times_us = [5,10, 15, 30, 45, 60]  # 5 10 15 30 45 60
     # DeepHiR静态阈值
-    thresholds = [0.2, 0.5, 1.0, 2.0, 4.0]
+    thresholds = [0.2, 0.5, 1.0, 2.0]  # , 4.0
     markers_bms = ['o', 'v', '^', 's', '*']
     colors_bms = ['green', 'blue', 'purple', 'k', 'orange']
     legend_labels = [
@@ -1193,7 +1232,7 @@ def test8_new_plot(testcase_number, testcase_name):
         "DeepHiR-0.5M",
         "DeepHiR-1M",
         "DeepHiR-2M",
-        "DeepHiR-4M",
+        # "DeepHiR-4M",
         "FBM"
     ]
 

@@ -710,15 +710,20 @@ def buffer_loss_compare(id):
     plt.clf()
 
 
-    plt.figure(figsize=(8,6)) 
-    plt.subplots_adjust(left=0.155, right=0.98, top=0.98,bottom=0.17) #调整子图相对于图形边缘的位置
+    plt.figure(figsize=(6.4, 5))
+    plt.subplots_adjust(
+        left=0.16,
+        right=0.98,
+        top=0.95,
+        bottom=0.19
+    )
     plt.xticks(fontsize=xzx_legend_size)
     plt.xlabel('Time(ms)',fontsize=xzx_legend_size)
     if id == "tc2-06":
         plt.ylabel('# of Packet Loss (x1e3)',fontsize=xzx_legend_size)
     elif id == "tc2-07":
         plt.ylabel('# of Packet Loss (x1e3)',fontsize=xzx_legend_size)
-        plt.ylim(0,62)
+        plt.ylim(0,25)
     else:
         plt.ylabel('# of Packet Loss',fontsize=xzx_legend_size)
     plt.yticks(fontsize=xzx_legend_size)
@@ -752,17 +757,41 @@ def buffer_loss_compare(id):
         plt.plot(time_loss_pbs,loss_pbs,label='FBM',linewidth=xzx_line_width5,linestyle='-',marker='d',color='r',markersize=size)
 
 
-    if id=="tc2-05":
-        fontsize205 = xzx_legend_size+2
-        plt.xticks(fontsize=fontsize205)
-        plt.yticks(fontsize=fontsize205)
-        plt.ylabel('# of Packet Loss',fontsize=fontsize205)
-        plt.legend(loc=2,labels=["DeepHir","FBM"],ncol=1,fontsize=fontsize205,frameon=False)
+    if id == "tc2-05":
+        plt.legend(
+            loc=2,
+            borderaxespad=0,
+            labels=["DeepHir", "FBM"],
+            ncol=2,
+            fontsize=xzx_legend_size,
+            frameon=False
+        )
         
-    elif id=="tc2-06":
-        plt.legend(loc=2, bbox_to_anchor=(0, 0.99),labels=["DeepHir","FBM"],ncol=1,fontsize=xzx_legend_size,frameon=False)
-    elif id=="tc2-07":
-        plt.legend(loc=2, bbox_to_anchor=(0, 0.99),labels=["DeepHir","FBM"],ncol=1,fontsize=xzx_legend_size,frameon=False)
+    elif id == "tc2-06":
+        plt.legend(
+            loc=2,
+            handletextpad=0.2,
+            columnspacing=1.5,
+            bbox_to_anchor=(0.1, 1),
+            borderaxespad=0,
+            labels=["DeepHir", "FBM"],
+            ncol=2,
+            fontsize=xzx_legend_size,
+            frameon=False
+        )
+
+    elif id == "tc2-07":
+        plt.legend(
+            loc=2,
+            handletextpad=0.2,
+            columnspacing=1.5,
+            bbox_to_anchor=(0.1, 1),
+            borderaxespad=0,
+            labels=["DeepHir", "FBM"],
+            ncol=2,
+            fontsize=xzx_legend_size,
+            frameon=False
+        )
 
     legend =plt.gca().get_legend()
     

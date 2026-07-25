@@ -144,7 +144,7 @@ main(int argc, char* argv[])
                 transport);
                 
     cmd.Parse(argc, argv);
-
+    bool enableCustomOutput = false;    //是否打印调试输出  默认是不输出
     uint32_t numSpokes = 6;
     uint32_t numReceivers = 3;
     double sim_time = 0.2;
