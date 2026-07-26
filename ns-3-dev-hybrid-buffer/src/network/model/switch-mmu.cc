@@ -1094,7 +1094,8 @@ SwitchMmu::BmResult SwitchMmu::Check3DTBmAlgorithm(Ptr<Packet> packet) { // FBMM
 
     //************* 流量状态 ***************
     Packet_Size_Cycle[port][priority][qIndex] += pktSize; //  统计当前周期总到达数据量
-    double lambdaLast = Packet_Size_Cycle[port][priority][qIndex] * 8.0 / (Simulator::Now() - simulation_start[port][priority][qIndex]).GetNanoSeconds();  // 上周期的流量到达速率
+    double lambdaLast = Packet_Size_Cycle[port][priority][qIndex] * 8.0 / m_Cost_ETC[port][priority][qIndex].GetNanoSeconds();
+                                                            //(Simulator::Now() - simulation_start[port][priority][qIndex]).GetNanoSeconds(); // 上周期的流量到达速率
     double lambdaEwma; // 当前周期的流量到达率的指数加权移动平均值
     lambdaEwma = EWMA_R[port][priority][qIndex];
     double lambdaDelta = lambdaLast - EWMA_Rslow[port][priority][qIndex]; // 突发的速率
@@ -1138,8 +1139,12 @@ SwitchMmu::BmResult SwitchMmu::Check3DTBmAlgorithm(Ptr<Packet> packet) { // FBMM
     }
     else
     ///**************** 第1个周期开始时(包括间隔太久重置周期为1) ******************/
-    if ((cycleTime > 2*RTT && qlen == 0) || T_seq[port][priority][qIndex] <= 1){
+    if ((cycleTime > 2*RTT && qlen == 0) || (cycleTime > 10*RTT ) || T_seq[port][priority][qIndex] <= 1){
         cout<< "Time:" << Simulator::Now() << " 端口:" << port << " 队列:" << qIndex << " 优先级:" << priority << " 周期重置为1" << endl;
+        if (isMixed) {  // 队列已经混合时，不允许改变当前方向。
+            newStoreDecision = storeDecision[port][priority][qIndex];
+            bmResult = newStoreDecision ? BmResult(TO_ONCHIPBUFFER) : BmResult(TO_OFFCHIPBUFFER);
+        }else
         if (QiS + pktSize <= dtThreshold && pktSize <= m_onChipBufferRemain){
             bmResult = BmResult(TO_ONCHIPBUFFER);
             storeDecision[port][priority][qIndex] = 1;  // =1为SRAM
@@ -1164,7 +1169,9 @@ SwitchMmu::BmResult SwitchMmu::Check3DTBmAlgorithm(Ptr<Packet> packet) { // FBMM
     else if (T_seq[port][priority][qIndex] > 1 && cycleTime >= m_Cost_ETC[port][priority][qIndex].GetNanoSeconds() && perPktDecisionFlag[port][priority][qIndex] < 3){ // FBM周期决策末
         //******* 收集周期末的状态 ******* */
         WriteDram_Rate_Cycle_last[port][priority][qIndex] = WriteDram_Rate_Cycle[port][priority][qIndex];;
-        WriteDram_Rate_Cycle[port][priority][qIndex] = WriteDram_Size_Cycle[port][priority][qIndex] * 8.0 / cycleTime;
+        WriteDram_Rate_Cycle[port][priority][qIndex] =
+            WriteDram_Size_Cycle[port][priority][qIndex] * 8.0 / m_Cost_ETC[port][priority][qIndex].GetNanoSeconds();
+         //cycleTime;
 
         // std::cout << "debugwk ewma_r: " << EWMA_R[port][priority][qIndex] << " lambdaLast: " << lambdaLast<< " EWMA_W: " << EWMA_W;;
         EWMA_R[port][priority][qIndex] =  EWMA_W * EWMA_R[port][priority][qIndex] + (1 - EWMA_W) * lambdaLast; //  平滑到达速率
