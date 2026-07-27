@@ -195,7 +195,7 @@ main(int argc, char* argv[])
     const Time changeTime = MicroSeconds(change_time_us);   //x时间
 
     // 切换到100Gbps之后，再等待固定200us
-    const Time burstStart = changeTime + MicroSeconds(300);   //端口2间隔200
+    const Time burstStart = changeTime + MicroSeconds(200);   //端口2间隔200
     const Time burstDuration = MicroSeconds(16);   //持续时间
     const Time burstEnd = burstStart + burstDuration;   
     // 最大x为64us 背景流继续运行到400us，覆盖整个突发阶段

@@ -7,7 +7,9 @@ import traceback
 import random
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import MultipleLocator 
-
+import matplotlib
+matplotlib.rcParams['pdf.fonttype'] = 42
+matplotlib.rcParams['ps.fonttype'] = 42
 
 # plt.rcParams['font.sans-serif'] = ['SimSun'] # 用来正常显示中文标签SimHei
 # plt.rcParams['axes.unicode_minus'] = False # 用来正常显示负号
@@ -726,6 +728,7 @@ def buffer_loss_compare(id):
         plt.ylim(0,25)
     else:
         plt.ylabel('# of Packet Loss',fontsize=xzx_legend_size)
+        plt.ylim(-5,90)
     plt.yticks(fontsize=xzx_legend_size)
     plt.tick_params(axis='x',direction='in')
     plt.tick_params(axis='y',direction='in')

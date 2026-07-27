@@ -12,6 +12,9 @@ from matplotlib.pyplot import MultipleLocator
 from mpl_toolkits.axes_grid1 import host_subplot
 from mpl_toolkits import axisartist
 from brokenaxes import brokenaxes  
+import matplotlib
+matplotlib.rcParams['pdf.fonttype'] = 42
+matplotlib.rcParams['ps.fonttype'] = 42
 # 当前脚本所在目录，例如 tests/analysis
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
