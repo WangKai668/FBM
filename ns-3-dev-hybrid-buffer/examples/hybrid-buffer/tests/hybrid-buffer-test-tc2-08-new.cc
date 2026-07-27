@@ -190,16 +190,16 @@ main(int argc, char* argv[])
 
     const DataRate backgroundRateHigh("500Gbps");   //端口1的500速率
     const DataRate backgroundRateLow("100Gbps");    // 端口1变速
-    const DataRate burstRate("2000Gbps");   //端口2的速率
+    const DataRate burstRate("1600Gbps");   //端口2的速率
 
-    const Time changeTime = MicroSeconds(change_time_us);   //x时间
+    const Time changeTime = MicroSeconds(60); //MicroSeconds(change_time_us);   //x时间
 
     // 切换到100Gbps之后，再等待固定200us
-    const Time burstStart = changeTime + MicroSeconds(200);   //端口2间隔200
-    const Time burstDuration = MicroSeconds(16);   //持续时间
+    const Time burstStart = changeTime + MicroSeconds(40);   //端口2间隔40us  100us开始打突发
+    const Time burstDuration = MicroSeconds(8);   //持续时间
     const Time burstEnd = burstStart + burstDuration;   
     // 最大x为64us 背景流继续运行到400us，覆盖整个突发阶段
-    const Time backgroundStop = MicroSeconds(400);  
+    const Time backgroundStop = MicroSeconds(600);  
     std::cout << "Deephir_threshold="<< Deephir_threshold << "M" << std::endl;
     std::cout << "change_time_us=" << change_time_us<< "us" << std::endl;
     std::cout << "burst_start_us=" << burstStart.GetMicroSeconds()  << "us"  << std::endl;
@@ -209,9 +209,22 @@ main(int argc, char* argv[])
     simHelper.AddFlow(3,1, MicroSeconds(0), changeTime, backgroundRateHigh);
     // 端口1：x us以后降为100Gbps
     simHelper.AddFlow(3, 1,  changeTime, backgroundStop, backgroundRateLow);
-    // 端口2：在x+200us时注入1000Gbps突发，持续32us
-    simHelper.AddFlow(2, 0, burstStart, burstEnd, burstRate);
 
+    // 端口2：在x+200us时注入1000Gbps突发，持续32us
+
+    uint64_t burstCnt = 0;
+    while (burstCnt < change_time_us)
+    {
+        simHelper.AddFlow(2, 0, burstStart + MicroSeconds(burstCnt * 100), burstEnd + MicroSeconds(burstCnt * 100), burstRate);
+        burstCnt++;
+    }
+    // simHelper.AddFlow(2, 0, burstStart, burstEnd, burstRate);
+
+    // simHelper.AddFlow(2, 0, burstStart + MicroSeconds(200), burstEnd + MicroSeconds(200), burstRate);
+
+    // simHelper.AddFlow(2, 0, burstStart + MicroSeconds(300), burstEnd + MicroSeconds(300), burstRate);
+
+    // simHelper.AddFlow(2, 0, burstStart + MicroSeconds(400), burstEnd + MicroSeconds(400), burstRate);
 
 
     simHelper.EnableHbmThroughputTracing();

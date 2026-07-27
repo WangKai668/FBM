@@ -1225,9 +1225,10 @@ def test8_new_plot(testcase_number, testcase_name):
 
     final_font_size = 30
     # 新实验的自变量：500Gbps背景流持续时间，单位us
-    change_times_us = [5,10, 15, 30, 45, 60]  # 5 10 15 30 45 60
+    change_times_us = [1, 2, 3, 4, 5]  # , 4.0
+    #[5,10, 15, 30, 45, 60]  # 5 10 15 30 45 60
     # DeepHiR静态阈值
-    thresholds = [0.2, 0.5, 1.0, 2.0]  # , 4.0
+    thresholds = [0.2, 0.5, 1.0, 2.0, 4.0]  # , 4.0
     markers_bms = ['o', 'v', '^', 's', '*']
     colors_bms = ['green', 'blue', 'purple', 'k', 'orange']
     legend_labels = [
@@ -1238,6 +1239,7 @@ def test8_new_plot(testcase_number, testcase_name):
         # "DeepHiR-4M",
         "FBM"
     ]
+
 
     fig, ax = plt.subplots(dpi=600,  figsize=(12, 6))
     lines = []
@@ -1302,14 +1304,26 @@ def test8_new_plot(testcase_number, testcase_name):
         markersize=10
     )
     lines.append(line)
-    ax.set_xlabel("High-rate Background Duration x (μs)", fontsize=final_font_size)
+    ax.set_xlabel("Rounds of Burst Traffic", fontsize=final_font_size)
     ax.set_ylabel("# of Packet Loss",fontsize=final_font_size)
+    # ax.set_yscale("log")  # 设置y轴为对数刻度
+    ax.set_yscale(
+        'symlog',
+        linthresh=200,   # 0～20 采用线性尺度
+        linscale=1.2,
+        base=10
+    )
 
+    ax.set_ylim(-2, 1000)
+
+    ax.set_yticks([0, 50, 100, 150, 200, 400, 800])
+    ax.set_yticklabels(['0', '50', '100', '150', '200', '400', '800'])
     # 明确设置横轴刻度
     ax.set_xticks(change_times_us)
 
     ax.tick_params( axis='x',labelsize=final_font_size)
     ax.tick_params(axis='y', labelsize=final_font_size)
+
 
     legend = ax.legend(
         bbox_to_anchor=(-0.02, 1.001),
@@ -2195,7 +2209,7 @@ else:
     elif testcase_number == 'tc2-08-new':
         # 新场景8
         test8_new_plot( testcase_number, testcase_name )
-        for change_time_dir in ["2us","4us","8us","16us","32us","64us"]:
+        for change_time_dir in ["5us","10us","15us","30us","45us","60us"]:
             queue_usage_plot(testcase_number,testcase_name,change_time_dir)
 
     elif testcase_number == 'tc2-09':

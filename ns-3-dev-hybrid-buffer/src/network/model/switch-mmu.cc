@@ -1094,7 +1094,8 @@ SwitchMmu::BmResult SwitchMmu::Check3DTBmAlgorithm(Ptr<Packet> packet) { // FBMM
 
     //************* 流量状态 ***************
     Packet_Size_Cycle[port][priority][qIndex] += pktSize; //  统计当前周期总到达数据量
-    double lambdaLast = Packet_Size_Cycle[port][priority][qIndex] * 8.0 / (Simulator::Now() - simulation_start[port][priority][qIndex]).GetNanoSeconds();  // 上周期的流量到达速率
+    double lambdaLast = Packet_Size_Cycle[port][priority][qIndex] * 8.0 / m_Cost_ETC[port][priority][qIndex].GetNanoSeconds();
+                                                            //(Simulator::Now() - simulation_start[port][priority][qIndex]).GetNanoSeconds(); // 上周期的流量到达速率
     double lambdaEwma; // 当前周期的流量到达率的指数加权移动平均值
     lambdaEwma = EWMA_R[port][priority][qIndex];
     double lambdaDelta = lambdaLast - EWMA_Rslow[port][priority][qIndex]; // 突发的速率
@@ -1115,12 +1116,6 @@ SwitchMmu::BmResult SwitchMmu::Check3DTBmAlgorithm(Ptr<Packet> packet) { // FBMM
 
     auto printPacketAdmissionResult = [&](bool intendedStoreSram){
         if (print_flag != 1) return;
-        // if (bmResult == BmResult(TO_ONCHIPBUFFER)){
-        //     cout << "Time:" << Simulator::Now() << "  packet:" << packet->GetUid() << " pktSize: " << packet->GetSize()<< " 端口:" << port<< " 存入片内" << endl;
-        // }
-        // else if (bmResult == BmResult(TO_OFFCHIPBUFFER)){
-        //     cout << "Time:" << Simulator::Now() << "  packet:" << packet->GetUid() << " pktSize: " << packet->GetSize() << " 端口:" << port << " 存入片外" << endl;
-        // }
         if (bmResult == BmResult(DROP)){
             if  (intendedStoreSram){
                 cout << "Time:" << Simulator::Now() << " SRAM丢包 packet:" << packet->GetUid()<< " pktSize: " << packet->GetSize() << " 端口:" << port
@@ -1144,8 +1139,12 @@ SwitchMmu::BmResult SwitchMmu::Check3DTBmAlgorithm(Ptr<Packet> packet) { // FBMM
     }
     else
     ///**************** 第1个周期开始时(包括间隔太久重置周期为1) ******************/
-    if ((cycleTime > 2*RTT && qlen == 0) || T_seq[port][priority][qIndex] <= 1){
+    if ((cycleTime > 2*RTT && qlen == 0) || (cycleTime > 10*RTT ) || T_seq[port][priority][qIndex] <= 1){
         cout<< "Time:" << Simulator::Now() << " 端口:" << port << " 队列:" << qIndex << " 优先级:" << priority << " 周期重置为1" << endl;
+        if (isMixed) {  // 队列已经混合时，不允许改变当前方向。
+            newStoreDecision = storeDecision[port][priority][qIndex];
+            bmResult = newStoreDecision ? BmResult(TO_ONCHIPBUFFER) : BmResult(TO_OFFCHIPBUFFER);
+        }else
         if (QiS + pktSize <= dtThreshold && pktSize <= m_onChipBufferRemain){
             bmResult = BmResult(TO_ONCHIPBUFFER);
             storeDecision[port][priority][qIndex] = 1;  // =1为SRAM
@@ -1167,68 +1166,12 @@ SwitchMmu::BmResult SwitchMmu::Check3DTBmAlgorithm(Ptr<Packet> packet) { // FBMM
         }
         printPacketAdmissionResult(storeDecision[port][priority][qIndex]);
     }
-    // else if (T_seq[port][priority][qIndex] > 1 && cycleTime < m_Cost_ETC[port][priority][qIndex].GetNanoSeconds() && perPktDecisionFlag[port][priority][qIndex] == 3) { // 每包决策周期之内
-    //     if (isMixed){ // 队列混合存储，SRAM和DRAM都有数据
-    //         if (storeDecision[port][priority][qIndex]){ 
-    //             if (QiS + pktSize <= dtThreshold && pktSize <= m_onChipBufferRemain && qlen + pktSize <= dtThreshold)
-    //                 bmResult = BmResult(TO_ONCHIPBUFFER);
-    //         }else{
-    //             if (hasWcacheSpace && hasDramSpace)
-    //                 bmResult = BmResult(TO_OFFCHIPBUFFER);
-    //         }
-    //     }
-    //     else{ // 队列单一存储，SRAM或DRAM
-    //         if (QiS + pktSize <= dtThreshold && pktSize <= m_onChipBufferRemain && qlen + pktSize <= dtThreshold){
-    //             bmResult = BmResult(TO_ONCHIPBUFFER);
-    //             if (storeDecision[port][priority][qIndex] == 0 &&  LINK_BW * m_Cost_ETC[port][priority][qIndex].GetNanoSeconds() / 8 <= qlen){
-    //                 if (hasWcacheSpace && hasDramSpace)
-    //                     bmResult = BmResult(TO_OFFCHIPBUFFER); //如果前面是DRAM，且当前队列无法被及时排出，那么久不能切到SRAM
-    //                 storeDecision[port][priority][qIndex] = 0;   
-    //             }else{
-    //                 storeDecision[port][priority][qIndex] = 1;
-    //             }       
-    //         }
-    //         else if (hasWcacheSpace && hasDramSpace){
-    //             bmResult = BmResult(TO_OFFCHIPBUFFER);
-    //             storeDecision[port][priority][qIndex] = 0;
-    //         }
-    //     } 
-    //     printPacketAdmissionResult(storeDecision[port][priority][qIndex]);
-    // }
-    // ///**************** 第N个(N>1)周期末 ******************/
-    // else if (T_seq[port][priority][qIndex] > 1 && cycleTime >= m_Cost_ETC[port][priority][qIndex].GetNanoSeconds() && perPktDecisionFlag[port][priority][qIndex] == 3){ //每包决策周期末
-    //     if (isMixed){ // 队列混合存储，SRAM和DRAM都有数据
-    //         if (storeDecision[port][priority][qIndex]) {
-    //             if (QiS + pktSize <= dtThreshold && pktSize <= m_onChipBufferRemain && qlen + pktSize <= dtThreshold)
-    //                 bmResult = BmResult(TO_ONCHIPBUFFER);
-    //         }else{
-    //             if (hasWcacheSpace && hasDramSpace)
-    //                 bmResult = BmResult(TO_OFFCHIPBUFFER);
-    //         }
-    //     }else{
-    //         if (QiS + pktSize <= dtThreshold && pktSize <= m_onChipBufferRemain && qlen + pktSize <= dtThreshold){
-    //             bmResult = BmResult(TO_ONCHIPBUFFER);
-    //             if (storeDecision[port][priority][qIndex] == 0){//LINK_BW * m_Cost_ETC[port][priority][qIndex].GetNanoSeconds() / 8 <= qlen){
-    //                 if (hasWcacheSpace && hasDramSpace)
-    //                     bmResult = BmResult(TO_OFFCHIPBUFFER); //如果前面是DRAM，且当前队列无法被及时排出，那么久不能切到SRAM
-    //                 storeDecision[port][priority][qIndex] = 0;   
-    //             }else{
-    //                 storeDecision[port][priority][qIndex] = 1;
-    //             }       
-    //         }
-    //         else if (hasWcacheSpace && hasDramSpace){
-    //             bmResult = BmResult(TO_OFFCHIPBUFFER);
-    //             storeDecision[port][priority][qIndex] = 0;
-    //         }
-    //     }
-    //     printPacketAdmissionResult(storeDecision[port][priority][qIndex]);
-    //     if (perPktDecisionFlag[port][priority][qIndex])
-    //         perPktDecisionFlag[port][priority][qIndex] -= 1; 
-    // }
     else if (T_seq[port][priority][qIndex] > 1 && cycleTime >= m_Cost_ETC[port][priority][qIndex].GetNanoSeconds() && perPktDecisionFlag[port][priority][qIndex] < 3){ // FBM周期决策末
         //******* 收集周期末的状态 ******* */
         WriteDram_Rate_Cycle_last[port][priority][qIndex] = WriteDram_Rate_Cycle[port][priority][qIndex];;
-        WriteDram_Rate_Cycle[port][priority][qIndex] = WriteDram_Size_Cycle[port][priority][qIndex] * 8.0 / cycleTime;
+        WriteDram_Rate_Cycle[port][priority][qIndex] =
+            WriteDram_Size_Cycle[port][priority][qIndex] * 8.0 / m_Cost_ETC[port][priority][qIndex].GetNanoSeconds();
+         //cycleTime;
 
         // std::cout << "debugwk ewma_r: " << EWMA_R[port][priority][qIndex] << " lambdaLast: " << lambdaLast<< " EWMA_W: " << EWMA_W;;
         EWMA_R[port][priority][qIndex] =  EWMA_W * EWMA_R[port][priority][qIndex] + (1 - EWMA_W) * lambdaLast; //  平滑到达速率
@@ -1344,32 +1287,6 @@ SwitchMmu::BmResult SwitchMmu::Check3DTBmAlgorithm(Ptr<Packet> packet) { // FBMM
              << " U_s1: " << U_sram_1 << " U_s2: " << U_sram_2 << " U_d1: " << U_dram_1 << " U_d2: " << U_dram_2<< " MD: " << MD << endl;
             cout << "最终决策结果:0片外 1片内 2丢包：   "<< bmResult << endl;
         }      
-        
-        // switch (perPktDecisionFlag[port][priority][qIndex]) {
-        //     case 2: // 每包决策后的第一个周期决策
-        //         perPktDecisionFlag[port][priority][qIndex] -= 1;
-        //         break;
-        //     case 1: // 每包决策后的第二个周期决策
-        //         if (newT - AI < 1e-6) { // 连续进入每包决策
-        //             perPktDecisionCount[port][priority][qIndex] += 1;
-        //             perPktDecisionFlag[port][priority][qIndex] = 3;
-        //             // newT = AI * std::pow(2, perPktDecisionCount[port][priority][qIndex]); // 每包决策周期长度为AI*2^n (2*AI, 4*AI, 8*AI, ...)
-        //             newT = AI * std::pow(2, 0); // 每包决策周期长度为AI*2^n (2*AI, 4*AI, 8*AI, ...)
-        //         }else{
-        //             perPktDecisionFlag[port][priority][qIndex] -= 1;
-        //         }
-        //         break;
-        //     case 0: // 每包决策后的第N(N>3)个周期决策，或未经历过每包决策
-        //         if (newT - AI < 1e-6) { // 初次进入每包决策
-        //             perPktDecisionCount[port][priority][qIndex] = 0;
-        //             perPktDecisionFlag[port][priority][qIndex] = 3;
-        //             // newT = AI * std::pow(2, perPktDecisionCount[port][priority][qIndex]); // 每包决策周期长度为AI*2^0 = AI
-        //             newT = AI * std::pow(2, 0); // 每包决策周期长度为AI*2^0 = AI
-        //         }
-        //         break;
-        //     default:
-        //         NS_ASSERT_MSG(false, "perPktDecisionFlag should be in {0,1,2}");
-        // }
     }
     //****************** 第一个周期或第N(N>1)个周期末要更新的状态 ******************/
     if (pktSize >= 100) //说明是数据包，才需要更新周期状态

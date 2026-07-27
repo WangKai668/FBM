@@ -217,16 +217,17 @@ runTest8()
 
   # 新实验的自变量：
   # 500Gbps背景流持续时间，单位us
-  local change_time_list=(5 10 15 30 45 60)
+  local change_time_list=(1 2 3 4 5) #(5 10 15 30 45 60)
 
   echo "Starting testcase $testcase at $(date)"
 
-  if [[ "$algorithm" == "pbs" ]]; then
+  # if [[ "$algorithm" == "pbs" ]]; then
 
     # FBM不需要遍历DeepHiR阈值
     for change_time_us in "${change_time_list[@]}"
     do
       echo "Starting testcase $testcase with change_time_us=${change_time_us}us algorithm=pbs at $(date)"
+      local output_dir_real="${OUTPUT_DIR}/pbs"
 
       final_dir="${output_dir_real}/${case_id}/${change_time_us}us"
       output_file_real="${final_dir}/${testcase}.txt"
@@ -253,16 +254,18 @@ runTest8()
       echo "Finished pbs change_time_us=${change_time_us}us"
     done
 
-  elif [[ "$algorithm" == "BMS" ]]; then
+  # elif [[ "$algorithm" == "BMS" ]]; then
 
     # DeepHiR继续遍历静态阈值
-    for Deephir_threshold in 0.2 0.5 1.0 2.0 4.0
+    for Deephir_threshold in 0.2 0.5 1.0 2.0 4.0 #0.2 0.5 1.0 2.0 4.0
     do
       for change_time_us in "${change_time_list[@]}"
       do
         echo "Starting testcase $testcase with change_time_us=${change_time_us}us Deephir_threshold=${Deephir_threshold}M at $(date)"
 
+      local output_dir_real="${OUTPUT_DIR}/BMS"
         final_dir="${output_dir_real}/${case_id}/${Deephir_threshold}M/${change_time_us}us"
+        echo "final_dir=$final_dir"
         output_file_real="${final_dir}/${testcase}.txt"
 
         mkdir -p "$final_dir"
@@ -288,10 +291,10 @@ runTest8()
       done
     done
 
-  else
-    echo "ERROR: runTest11 只支持 pbs 或 BMS，当前参数为：$algorithm"
-    return 1
-  fi
+  # else
+    # echo "ERROR: runTest11 只支持 pbs 或 BMS，当前参数为：$algorithm"
+    # return 1
+  # fi
 
   echo "Finished testcase $testcase at $(date)"
 }
