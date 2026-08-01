@@ -951,6 +951,7 @@ SwitchMmu::CheckDeepHirBmAlgorithm(Ptr<Packet> packet) // 该函数用于检查�
     NS_ASSERT_MSG(priority <= 1, "优先级只有2个");
     // 默认决策为丢包
     bmResult = BmResult(DROP);
+    const bool staticThresholdSatisfied =(m_wredTh[priority] == 0) ||((qlen + pktSize) <= m_wredTh[priority]);
 
     if (pktSize < 100){ //说明是ack， 单独处理
         if (pktSize <= m_onChipBufferRemain){
@@ -962,7 +963,7 @@ SwitchMmu::CheckDeepHirBmAlgorithm(Ptr<Packet> packet) // 该函数用于检查�
     }
     else
     // 满足静态阈值、SRAM剩余空间和DT动态阈值时，存入片内SRAM
-    if ((qlen + pktSize) <= m_wredTh[priority] &&m_onChipBufferRemain >= pktSize &&(Qis + pktSize) <= DT_Threshold)
+    if (staticThresholdSatisfied && m_onChipBufferRemain >= pktSize &&(Qis + pktSize) <= DT_Threshold)
     {
         bmResult = BmResult(TO_ONCHIPBUFFER);
         // cout << "Time:" << Simulator::Now() << " packet:" << packet->GetUid()<< " 端口:" << port << " 存入片内" << endl;
@@ -1206,6 +1207,7 @@ SwitchMmu::BmResult SwitchMmu::Check3DTBmAlgorithm(Ptr<Packet> packet) { // FBMM
         U_star = storeDecision[port][priority][qIndex] ? U_Sstar : U_Dstar;
         deltaU = T_seq[port][priority][qIndex] > 2 ? std::fabs(utility[port][priority][qIndex] - U_star) : 0.0;
 
+
         //******* 计算下一周期的周期长度 T（前瞻范围） ******* */
         MD = UTILITY_ETA / (UTILITY_ETA + MD_EPSILON * deltaU);  //MD的更新
         newT =  std::max(AI, std::min((m_Cost_ETC[port][priority][qIndex].GetNanoSeconds() + AI) * MD, RTT));  //T(t+1)=min[(T(t)+AI)×MD,Tmax​]
@@ -1290,7 +1292,7 @@ SwitchMmu::BmResult SwitchMmu::Check3DTBmAlgorithm(Ptr<Packet> packet) { // FBMM
     }
     //****************** 第一个周期或第N(N>1)个周期末要更新的状态 ******************/
     if (pktSize >= 100) //说明是数据包，才需要更新周期状态
-    if ((cycleTime > 2*RTT && qlen == 0) || T_seq[port][priority][qIndex] <= 1 ||
+    if ((cycleTime > 2*RTT && qlen == 0) ||T_seq[port][priority][qIndex] <= 1 ||
         (T_seq[port][priority][qIndex] > 1 && cycleTime >= m_Cost_ETC[port][priority][qIndex].GetNanoSeconds())){ 
         if (print_flag == 1 && port<12){
             cout << endl<< "--------------------------------------------------------------------------------"<<endl;

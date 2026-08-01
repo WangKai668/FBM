@@ -12,9 +12,10 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 # tests/data
 DATA_DIR = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "data"))
 
-BMS_THRESHOLDS = ["0.2M", "0.5M", "1.0M", "2.0M", "4.0M"]
+BMS_THRESHOLDS = ["0.0M","0.2M", "0.5M", "1.0M", "2.0M", "4.0M"]
 
 LABELS = [
+    "BMS-DT",
     "BMS-0.2M",
     "BMS-0.5M",
     "BMS-1.0M",

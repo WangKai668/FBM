@@ -35,7 +35,7 @@ save_path_BMS = save_path
 xzx_line_width = 3
 # xzx_legend_size = 26
 xzx_legend_size = 26
-xzx_xykedu_size = 20
+xzx_xykedu_size = 26
 
 nPort = 64
 nPrio = 2
@@ -650,11 +650,11 @@ def buffer_loss_compare(id):
         plt.ylim(0,4)
 
     plt.xticks(fontsize=xzx_legend_size)
-    plt.xlabel('Time(ms)',fontsize=xzx_legend_size)
+    plt.xlabel('Time (ms)',fontsize=30)
 
     
     plt.yticks(fontsize=xzx_legend_size)
-    plt.ylabel('Buffer Usage (MB)',fontsize=xzx_legend_size)
+    plt.ylabel('Buffer Usage (MB)',fontsize=30)
     plt.tick_params(axis='x',direction='in')
     plt.tick_params(axis='y',direction='in')
 
@@ -720,12 +720,13 @@ def buffer_loss_compare(id):
         bottom=0.19
     )
     plt.xticks(fontsize=xzx_legend_size)
-    plt.xlabel('Time(ms)',fontsize=xzx_legend_size)
+    plt.xlabel('Time (ms)',fontsize=30)
     if id == "tc2-06":
-        plt.ylabel('# of Packet Loss (x1e3)',fontsize=xzx_legend_size)
+        plt.ylabel('# of Packet Loss (x1e3)',fontsize=30)
     elif id == "tc2-07":
-        plt.ylabel('# of Packet Loss (x1e3)',fontsize=xzx_legend_size)
-        plt.ylim(0,25)
+        plt.ylabel('# of Packet Loss (x1e3)',fontsize=30)
+        plt.ylim(0,20)
+        plt.yticks([0, 5, 10, 15, 20])
     else:
         plt.ylabel('# of Packet Loss',fontsize=xzx_legend_size)
         plt.ylim(-5,90)

@@ -947,7 +947,7 @@ class SwitchMmu : public Object
     std::vector<PortType> m_portRates; //!< Out rates of ports, default 100Gbps
 
     double LINK_BW = 100.0; // 出口带宽，100Gbps
-    double RTT = 4 * 1e3; // RTT, 32us
+    double RTT = 32 * 1e3; // RTT, 32us
 
     double DT_alpha = 4;
 

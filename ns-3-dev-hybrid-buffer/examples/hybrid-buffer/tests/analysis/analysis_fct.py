@@ -131,7 +131,7 @@ def process_flow_data(input_file):
     print(f"处理完成，{data_type}结果已保存到 {output_file}")
 
 
-case_name = "tc2-03-h-20b"
+case_name = "tc2-07"
 
 input_files = [
 os.path.join(

@@ -88,7 +88,7 @@ def test9_plot(testcase="tc2-09"):
     ax_data = []
 
     # DeepHir/BMS
-    thresholds = [0.2, 0.5, 1.0, 2.0, 4.0]
+    thresholds = [0.0,0.2, 0.5, 1.0, 2.0, 4.0]
 
     file_path_pre = os.path.join(
         data_dir,
