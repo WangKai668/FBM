@@ -293,7 +293,7 @@ main(int argc, char* argv[])
     //uint32_t dst = 0;
     lines.erase(lines.begin());
     int count = 0;
-    srand(5);  // 设置固定随机种子，只调用一次
+    //srand(5);  // 设置固定随机种子，只调用一次
     for (auto i : lines)    {
         count++;
         std::vector<std::string> words;
