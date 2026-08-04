@@ -248,7 +248,7 @@ main(int argc, char* argv[])
         std::cerr << "错误：没有收到 traffic_gen_dir 参数" << std::endl;
         return 1;
     }
-    std::string filename = trafficGenDir +(isWeb? "/Generated/traffic_web_80.txt" : "/Generated/traffic_fbhdp_80.txt");
+    std::string filename = trafficGenDir +(isWeb? "/Generated/traffic_web_90.txt" : "/Generated/traffic_fbhdp_90.txt");
     std::cout << "TrafficGen目录：" << trafficGenDir << std::endl;
     std::cout << "读取流量文件：" << filename << std::endl;
     std::ifstream ifile(filename);
@@ -293,6 +293,7 @@ main(int argc, char* argv[])
     //uint32_t dst = 0;
     lines.erase(lines.begin());
     int count = 0;
+    //srand(5);  // 设置固定随机种子，只调用一次
     for (auto i : lines)    {
         count++;
         std::vector<std::string> words;

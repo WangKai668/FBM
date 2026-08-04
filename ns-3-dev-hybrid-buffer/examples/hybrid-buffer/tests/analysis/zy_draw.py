@@ -10,9 +10,11 @@ import random
 import bisect
 from mpl_toolkits.axes_grid1 import host_subplot
 from mpl_toolkits import axisartist
-font_size =22
-linewidth=1
-
+font_size =30
+linewidth=6
+import matplotlib
+matplotlib.rcParams['pdf.fonttype'] = 42
+matplotlib.rcParams['ps.fonttype'] = 42
 plt.rc('font',family='Times New Roman')
 # 当前脚本所在目录：tests/analysis
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -71,7 +73,7 @@ with open(hw_loss_packet) as file:
 
 
 #cyx的
-
+plt.figure(figsize=(8,6), dpi=300)
 plt.xlabel('Time (ms)',fontsize=font_size)
 plt.ylabel('Rate (Gbps)',fontsize=font_size)
 plt.xticks(fontsize=font_size) 
@@ -86,7 +88,7 @@ plt.plot(x2, y2, label='port2', linestyle='--', color='green',marker='d',linewid
 plt.plot(x3, y3, label='port3', linestyle='-.', color='orange',marker='^',linewidth=3)
 
 ax2=ax.twinx()
-ax2.set_ylim(-25, 370)
+ax2.set_ylim(-25, 175)
 ax2.set_ylabel('# of Packet Loss', fontsize=font_size)
 ax2.tick_params(axis='y', direction='in', labelsize=font_size)
 

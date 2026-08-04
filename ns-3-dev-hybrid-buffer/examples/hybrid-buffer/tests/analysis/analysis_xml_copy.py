@@ -146,7 +146,7 @@ if __name__ == "__main__":
     data_type = sys.argv[2]
 
     if data_type == "BMS":
-        type_list = ['0.2M', '0.5M', '1.0M', '2.0M', '4.0M']
+        type_list = ['0.0M','0.2M', '0.5M', '1.0M', '2.0M', '4.0M']
         for bw_type in type_list:
             xml_file = get_xml_path(test_id, bw_type)
             output_file = os.path.join(os.path.dirname(xml_file), f"flow-analysis-{test_id}.txt")  # {test_id}

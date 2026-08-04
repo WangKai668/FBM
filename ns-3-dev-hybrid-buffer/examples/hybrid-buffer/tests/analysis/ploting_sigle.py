@@ -12,6 +12,9 @@ from matplotlib.pyplot import MultipleLocator
 from mpl_toolkits.axes_grid1 import host_subplot
 from mpl_toolkits import axisartist
 from brokenaxes import brokenaxes  
+import matplotlib
+matplotlib.rcParams['pdf.fonttype'] = 42
+matplotlib.rcParams['ps.fonttype'] = 42
 # 当前脚本所在目录，例如 tests/analysis
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -141,8 +144,8 @@ def queue_usage_plot(id,name,iftest8SendRate=''):
             
     if len(hbm_usage) == 0:
         return
-
-    plt.figure(figsize=(8, 7.2), dpi=300)
+    # --sj
+    plt.figure(figsize=(8, 6), dpi=300)
 
     if id == "tc2-06":
         plt.xlim(x_start,x_end)
@@ -281,9 +284,9 @@ def queue_usage_plot(id,name,iftest8SendRate=''):
                 handles=handles[:4],
                 labels=labels[:4],
                 loc='lower center',
-                bbox_to_anchor=(0.5, 1.02),
+                bbox_to_anchor=(0.0, 0.95, 1.0, 0.20),
                 ncol=2,
-                fontsize=20,
+                fontsize=final_font_size,
                 handlelength=1.8,
                 columnspacing=1.0,
                 handletextpad=0.5,
@@ -584,7 +587,8 @@ def queue_write_read_throughput_plot(test_case_number,name,iftest8SendRate=""):
     #print(sum)
     # plt.figure(figsize=(9,7))
     # plt.subplots_adjust(left=0.14, right=0.98,bottom=0.15)
-    plt.figure(figsize=(8, 7.2), dpi=300)
+    # --sj
+    plt.figure(figsize=(8, 6), dpi=300)
     plt.xticks(fontsize=final_font_size)
     plt.xlabel('Time (ms)',fontsize=final_font_size)
     plt.ylabel('Throughput (Gbps)',fontsize=final_font_size)
@@ -687,14 +691,26 @@ def queue_write_read_throughput_plot(test_case_number,name,iftest8SendRate=""):
 
     
     plt.legend(
-        loc='lower center',
-        bbox_to_anchor=(0.5, 1.02),
+        handles=handles[:4],
+        labels=labels[:4],
+
+        # 图例从坐标轴左侧开始，并与下面坐标区域等宽
+        loc='lower left',
+        bbox_to_anchor=(0.0, 1.02, 1.0, 0.20),
+        mode='expand',
+
+        # 两列两行
         ncol=2,
-        fontsize=20,
+
+        # 与坐标轴文字大小相同
+        fontsize=final_font_size,
+
         frameon=False,
-        columnspacing=1.0,
-        handlelength=1.8,
-        handletextpad=0.5
+        borderaxespad=0.0,
+        handlelength=1.6,
+        handletextpad=0.4,
+        columnspacing=0.8,
+        labelspacing=0.55
     )
 
     plt.subplots_adjust(
@@ -1170,7 +1186,7 @@ def test8_plot(id,name):
     # Deephir
     # 定义文件路径
     flow_rates = [100,200,300,400,500,600,700,800,900]
-    thresholds = [0.2,0.5,1.0,2.0]  # ,4.0
+    thresholds = [0.2,0.5,1.0,2.0,0.0]  # ,4.0
     plt.figure()
     markers_BMS = ['o','v','^','s','*']
     colors_BMS = ['green','blue','purple','k','orange']
@@ -1180,14 +1196,14 @@ def test8_plot(id,name):
 
     plt.figure().set_figheight(4)
     # plt.yscale("symlog")
-    plt.figure(dpi=600,figsize=(12, 6))
+    plt.figure(dpi=600,figsize=(10, 6))
 
     for threshold in thresholds:
         y = []
         for flow_rate in flow_rates:
             file_path = file_path_pre + str(threshold) +'M/' + str(flow_rate) +'/loss_packet.csv'
             # 打开文件并读取最后一行的最后一项
-            loss_num = float(get_last_field(file_path)) /1000
+            loss_num = float(get_last_field(file_path))
             y.append(loss_num)
         epsilon = 1e-15  # 设置一个极小值
         y[y==0] = epsilon
@@ -1200,19 +1216,29 @@ def test8_plot(id,name):
     for flow_rate in flow_rates:
         file_path = file_path_pre + str(flow_rate) +'/loss_packet.csv'
         # 打开文件并读取最后一行的最后一项
-        loss_num = float(get_last_field(file_path)) / 1000
+        loss_num = float(get_last_field(file_path))
         y.append(loss_num)
 
     # 绘制折线图
     lines[i], =plt.plot(flow_rates, y, marker='>', linestyle='-', color='r',linewidth =linewidth_middle+2, markersize=10)
-    plt.xlabel("Flow Rate(Gbps)",fontsize=final_font_size)
-    plt.ylabel("# of Packet Loss (x1e3)",fontsize=final_font_size)
-    plt.xticks(fontsize=final_font_size)  # 调整x轴刻度大小
-    plt.yticks(fontsize=final_font_size)  # 调整y轴刻度大小
+    plt.xlabel("Flow Rate(Gbps)",fontsize=38)
+    plt.ylabel("# of Packet Loss",fontsize=38)
+    plt.xticks(fontsize=34)  # 调整x轴刻度大小
+    plt.yticks(fontsize=34)  # 调整y轴刻度大小
 
-    plt.legend(bbox_to_anchor=(-0.02, 1.001), loc=3, columnspacing=0.5,borderaxespad=0,handles=lines,labels=["DeepHir-0.2M","DeepHir-0.5M","DeepHir-1M","DeepHir-2M","FBM"],ncol=3,fontsize=final_font_size, handlelength=1.5, handletextpad=0.1)
-    legend =plt.gca().get_legend()  # "DeepHir-4M",
-    legend.get_frame().set_linewidth(0)
+    legend = plt.legend(
+        handles=lines,
+        labels=["D-0.2M", "D-0.5M", "D-1.0M", "D-2.0M", "DT*", "FBM"],
+        loc='lower center',
+        bbox_to_anchor=(0.5, 1.02),  # 0.5表示相对于坐标轴水平居中
+        ncol=3,                     # 3列，因此显示成两行
+        fontsize=36,
+        columnspacing=0.7,
+        handlelength=1.5,
+        handletextpad=0.15,
+        borderaxespad=0,
+        frameon=False
+    )
     path = save_path+'compare/tc2-08/adaptability-to-Traffic-Variation-compare.pdf'
     plt.savefig(path, bbox_inches='tight')
     plt.clf()
@@ -1225,20 +1251,36 @@ def test8_new_plot(testcase_number, testcase_name):
     change_times_us = [1, 2, 3, 4, 5]  # , 4.0
     #[5,10, 15, 30, 45, 60]  # 5 10 15 30 45 60
     # DeepHiR静态阈值
-    thresholds = [0.2, 0.5, 1.0, 2.0, 4.0]  # , 4.0
-    markers_bms = ['o', 'v', '^', 's', '*']
-    colors_bms = ['green', 'blue', 'purple', 'k', 'orange']
+    thresholds = [0.2, 0.5, 1.0, 2.0, 0.0]
+    # 6个阈值，对应6种marker
+    markers_bms = [
+        'o',   # 0.2M
+        'v',   # 0.5M
+        '^',   # 1.0M
+        's',   # 2.0M
+        '*',    # 4.0M
+    ]
+
+    # 6个阈值，对应6种颜色
+    colors_bms = [
+        'green',    # DeepHiR-0.2M
+        'blue',  # DeepHiR-0.5M
+        'purple',       # DeepHiR-1M
+        'k',  # DeepHiR-2M
+        'orange' ,   # DeepHiR-4M
+    ]
+
+    # 6条DeepHiR曲线 + 1条FBM曲线
     legend_labels = [
-        "DeepHiR-0.2M",
-        "DeepHiR-0.5M",
-        "DeepHiR-1M",
-        "DeepHiR-2M",
-        "DeepHiR-4M",
+        "D-0.2M",
+        "D-0.5M",
+        "D-1.0M",
+        "D-2.0M",
+        "DT*",
         "FBM"
     ]
 
-
-    fig, ax = plt.subplots(dpi=600,  figsize=(12, 6))
+    fig, ax = plt.subplots(dpi=600,  figsize=(10, 6))
     lines = []
 
     bms_path_prefix = os.path.join( data_dir, "BMS", testcase_number )
@@ -1301,8 +1343,8 @@ def test8_new_plot(testcase_number, testcase_name):
         markersize=10
     )
     lines.append(line)
-    ax.set_xlabel("Rounds of Burst Traffic", fontsize=final_font_size)
-    ax.set_ylabel("# of Packet Loss",fontsize=final_font_size)
+    ax.set_xlabel("Rounds of Burst Traffic", fontsize=38)
+    ax.set_ylabel("# of Packet Loss",fontsize=38)
     # ax.set_yscale("log")  # 设置y轴为对数刻度
     ax.set_yscale(
         'symlog',
@@ -1318,21 +1360,23 @@ def test8_new_plot(testcase_number, testcase_name):
     # 明确设置横轴刻度
     ax.set_xticks(change_times_us)
 
-    ax.tick_params( axis='x',labelsize=final_font_size)
-    ax.tick_params(axis='y', labelsize=final_font_size)
+    ax.tick_params( axis='x',labelsize=34)
+    ax.tick_params(axis='y', labelsize=34)
 
 
     legend = ax.legend(
-        bbox_to_anchor=(-0.02, 1.001),
-        loc=3,
-        columnspacing=0.5,
-        borderaxespad=0,
         handles=lines,
         labels=legend_labels,
-        ncol=3,
-        fontsize=final_font_size,
+        loc='lower center',
+        bbox_to_anchor=(0.5, 1.02),  # 水平居中，放在坐标轴上方
+        ncol=3,                     # 3列，两行
+        fontsize=36,
+        columnspacing=0.8,
         handlelength=1.5,
-        handletextpad=0.1
+        handletextpad=0.2,
+        labelspacing=0.4,
+        borderaxespad=0,
+        frameon=False
     )
     legend.get_frame().set_linewidth(0)
 
@@ -2206,7 +2250,7 @@ else:
     elif testcase_number == 'tc2-08-new':
         # 新场景8
         test8_new_plot( testcase_number, testcase_name )
-        for change_time_dir in ["5us","10us","15us","30us","45us","60us"]:
+        for change_time_dir in ["1us","2us","3us","4us","5us"]:
             queue_usage_plot(testcase_number,testcase_name,change_time_dir)
 
     elif testcase_number == 'tc2-09':
